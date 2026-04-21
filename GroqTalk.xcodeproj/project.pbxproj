@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0F314CEFCCECD10D8D73BD59 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583AB3E22194CF0BE215E9C6 /* AudioRecorder.swift */; };
+		2B38B3440F7EDF7EE3E32329 /* TextInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61B277DF7657903E9ED14B1 /* TextInserter.swift */; };
 		2F82960B56006370D0F90FCC /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D5510A5B46F677D2AE854D /* TranscriptionService.swift */; };
 		68CA2C950FA6990F920B6F0E /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0224008DA333B2B45AA9B3 /* SoundPlayer.swift */; };
 		7D8E0B807298CAECDFCE311E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1F5AA67E138E2CA7C5849E3 /* Assets.xcassets */; };
@@ -44,6 +45,7 @@
 		C64A6F82CCC4912E445F25A4 /* GroqTalk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GroqTalk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DF970AE548B49F2AD02AE742 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
 		F2C48CEFD0EA9409C15CBFB0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		F61B277DF7657903E9ED14B1 /* TextInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -86,6 +88,7 @@
 				43A2E33CA96A9F02E59C910A /* Info.plist */,
 				86D07A7A6D47B83D5319CB92 /* KeychainHelper.swift */,
 				AE0224008DA333B2B45AA9B3 /* SoundPlayer.swift */,
+				F61B277DF7657903E9ED14B1 /* TextInserter.swift */,
 				78D5510A5B46F677D2AE854D /* TranscriptionService.swift */,
 			);
 			path = GroqTalk;
@@ -182,6 +185,7 @@
 				F34BB165ADDE82F7DA185B8D /* GroqTalkApp.swift in Sources */,
 				93AD185BFCF6ADFE1DF0693E /* KeychainHelper.swift in Sources */,
 				68CA2C950FA6990F920B6F0E /* SoundPlayer.swift in Sources */,
+				2B38B3440F7EDF7EE3E32329 /* TextInserter.swift in Sources */,
 				2F82960B56006370D0F90FCC /* TranscriptionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
