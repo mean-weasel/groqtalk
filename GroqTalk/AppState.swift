@@ -31,8 +31,8 @@ final class AppState {
 
     var menuBarIcon: String {
         switch status {
-        case .idle: "mic.fill"
-        case .recording: "mic.circle.fill"
+        case .idle: "waveform"
+        case .recording: "waveform.circle.fill"
         case .transcribing: "ellipsis.circle.fill"
         case .error: "exclamationmark.triangle.fill"
         }
