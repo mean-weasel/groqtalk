@@ -11,34 +11,10 @@ final class AudioRecorder {
         buffers = []
 
         let inputNode = engine.inputNode
-        let hwFormat = inputNode.inputFormat(forBus: 0)
+        let format = inputNode.outputFormat(forBus: 0)
 
-        // Whisper expects 16kHz mono 16-bit PCM
-        guard let recordingFormat = AVAudioFormat(
-            commonFormat: .pcmFormatInt16,
-            sampleRate: 16000,
-            channels: 1,
-            interleaved: true
-        ) else { return }
-
-        // Install converter if hardware format differs
-        guard let converter = AVAudioConverter(from: hwFormat, to: recordingFormat) else { return }
-
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: hwFormat) { [weak self] buffer, _ in
-            guard let self else { return }
-            let frameCount = AVAudioFrameCount(
-                Double(buffer.frameLength) * (16000.0 / hwFormat.sampleRate)
-            )
-            guard let converted = AVAudioPCMBuffer(pcmFormat: recordingFormat, frameCapacity: frameCount) else { return }
-
-            var error: NSError?
-            converter.convert(to: converted, error: &error) { _, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
-            }
-            if error == nil {
-                self.buffers.append(converted)
-            }
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: format) { [weak self] buffer, _ in
+            self?.buffers.append(buffer)
         }
 
         do {

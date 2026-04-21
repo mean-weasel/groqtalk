@@ -8,13 +8,14 @@ final class HotkeyMonitor {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var rightOptionDown = false
+    private var rightCommandDown = false
     private var otherKeysDuringHold = false
     private var pressTime: Date?
     private let debounceInterval: TimeInterval = 0.2
 
-    // Right Option virtual key code
-    private static let rightOptionKeyCode: Int64 = 0x3D
+    // Device-specific flag bits (from IOLLEvent.h / NSEvent.h)
+    // These distinguish left vs right modifier keys in the raw flags
+    private static let rightCommandDeviceFlag: UInt64 = 0x10  // NX_DEVICERCMDKEYMASK
 
     func start() {
         let eventMask = (1 << CGEventType.flagsChanged.rawValue)
@@ -41,6 +42,7 @@ final class HotkeyMonitor {
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        print("HotkeyMonitor: event tap created and enabled")
     }
 
     func stop() {
@@ -64,37 +66,32 @@ final class HotkeyMonitor {
         }
 
         if type == .flagsChanged {
-            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let rawFlags = event.flags.rawValue
+            let rightCmdActive = (rawFlags & Self.rightCommandDeviceFlag) != 0
 
-            if keyCode == Self.rightOptionKeyCode {
-                let optionPressed = event.flags.contains(.maskAlternate)
+            if rightCmdActive && !rightCommandDown {
+                rightCommandDown = true
+                otherKeysDuringHold = false
+                pressTime = Date()
+                onRecordingStarted?()
+            } else if !rightCmdActive && rightCommandDown {
+                let wasSoloPress = !otherKeysDuringHold
+                let longEnough = pressTime.map {
+                    Date().timeIntervalSince($0) >= debounceInterval
+                } ?? false
 
-                if optionPressed && !rightOptionDown {
-                    // Right Option pressed down
-                    rightOptionDown = true
-                    otherKeysDuringHold = false
-                    pressTime = Date()
-                    onRecordingStarted?()
-                } else if !optionPressed && rightOptionDown {
-                    // Right Option released
-                    let wasSoloPress = !otherKeysDuringHold
-                    let longEnough = pressTime.map {
-                        Date().timeIntervalSince($0) >= debounceInterval
-                    } ?? false
+                rightCommandDown = false
+                otherKeysDuringHold = false
+                pressTime = nil
 
-                    rightOptionDown = false
-                    otherKeysDuringHold = false
-                    pressTime = nil
-
-                    if wasSoloPress && longEnough {
-                        onRecordingStopped?()
-                    } else {
-                        onRecordingCancelled?()
-                    }
+                if wasSoloPress && longEnough {
+                    onRecordingStopped?()
+                } else {
+                    onRecordingCancelled?()
                 }
             }
-        } else if type == .keyDown && rightOptionDown {
-            // A regular key pressed while Right Option held — cancel recording
+        } else if type == .keyDown && rightCommandDown {
+            // A regular key pressed while Right Command held — cancel recording
             if !otherKeysDuringHold {
                 otherKeysDuringHold = true
                 onRecordingCancelled?()
