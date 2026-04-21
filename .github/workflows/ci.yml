@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  merge_group:
+
+concurrency:
+  group: ci-${{ github.head_ref || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-changes:
+    name: Detect Changed Paths
+    runs-on: macos-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'GroqTalk/**'
+              - 'GroqTalkTests/**'
+              - 'GroqTalk.xcodeproj/**'
+              - 'project.yml'
+              - '.github/**'
+
+  build:
+    name: Build
+    runs-on: macos-15
+    timeout-minutes: 15
+    needs: [detect-changes]
+    if: >-
+      always() && !cancelled() &&
+      (github.event_name != 'pull_request' ||
+       needs.detect-changes.outputs.code == 'true')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
+
+      - name: Build (warnings as errors)
+        run: |
+          xcodebuild build \
+            -scheme GroqTalk \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            OTHER_SWIFT_FLAGS='-warnings-as-errors' \
+            | xcpretty --color && exit ${PIPESTATUS[0]}
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: macos-15
+    timeout-minutes: 15
+    needs: [detect-changes]
+    if: >-
+      always() && !cancelled() &&
+      (github.event_name != 'pull_request' ||
+       needs.detect-changes.outputs.code == 'true')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
+
+      - name: Run tests
+        run: |
+          xcodebuild test \
+            -scheme GroqTalk \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -resultBundlePath TestResults.xcresult \
+            | xcpretty --color && exit ${PIPESTATUS[0]}
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
+          if [ -d TestResults.xcresult ]; then
+            xcrun xcresulttool get test-results summary \
+              --path TestResults.xcresult \
+              --compact 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || \
+            echo "_Could not parse test results._" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No test results bundle found._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults.xcresult
+          retention-days: 14
+
+  ci-gate:
+    name: CI Gate
+    runs-on: macos-latest
+    timeout-minutes: 5
+    if: always()
+    needs:
+      - build
+      - unit-tests
+    steps:
+      - name: Check required jobs
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          TEST_RESULT: ${{ needs.unit-tests.result }}
+        run: |
+          echo "Build: $BUILD_RESULT, Tests: $TEST_RESULT"
+          for result in "$BUILD_RESULT" "$TEST_RESULT"; do
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "A required job reported: $result"
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped"
