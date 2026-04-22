@@ -30,12 +30,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let soundPlayer = SoundPlayer()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Check accessibility permission
-        if !AXIsProcessTrusted() {
-            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-            AXIsProcessTrustedWithOptions(options)
-        }
-
         // Wire hotkey monitor
         hotkeyMonitor.onRecordingStarted = { [weak self] in
             guard let self else { return }
@@ -92,6 +86,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.appState.setStatus(.idle)
             }
         }
-        hotkeyMonitor.start()
+        startHotkeyMonitorWithRetry()
+    }
+
+    private func startHotkeyMonitorWithRetry() {
+        if hotkeyMonitor.start() {
+            appState.setStatus(.idle)
+            return
+        }
+
+        // Prompt the user and show error
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
+        AXIsProcessTrustedWithOptions(options)
+        appState.setStatus(.error("Enable Accessibility in Settings"))
+
+        // Poll until permission is granted, then start
+        Task {
+            while !AXIsProcessTrusted() {
+                do {
+                    try await Task.sleep(for: .seconds(2))
+                } catch {
+                    return
+                }
+            }
+            if hotkeyMonitor.start() {
+                appState.setStatus(.idle)
+            } else {
+                appState.showError("Failed to start — try restarting GroqTalk")
+            }
+        }
     }
 }

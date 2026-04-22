@@ -19,8 +19,9 @@ final class HotkeyMonitor {
 
     deinit { stop() }
 
-    func start() {
-        guard eventTap == nil else { return }
+    @discardableResult
+    func start() -> Bool {
+        guard eventTap == nil else { return true }
         let eventMask = (1 << CGEventType.flagsChanged.rawValue)
             | (1 << CGEventType.keyDown.rawValue)
 
@@ -36,8 +37,7 @@ final class HotkeyMonitor {
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
-            print("HotkeyMonitor: failed to create event tap — is Accessibility enabled?")
-            return
+            return false
         }
 
         eventTap = tap
@@ -45,6 +45,7 @@ final class HotkeyMonitor {
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        return true
     }
 
     func stop() {
