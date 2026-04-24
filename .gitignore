@@ -6,3 +6,6 @@ DerivedData/
 # Build artifacts
 *.profraw
 .superpowers/
+
+# Node (semantic-release tooling)
+node_modules/
