@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 struct TranscriptionRecord: Codable, Identifiable {
     let id: UUID
@@ -45,7 +46,7 @@ struct TranscriptionRecord: Codable, Identifiable {
     }
 }
 
-@MainActor
+@MainActor @Observable
 final class TranscriptionHistory {
     private static let maxRecords = 20
 

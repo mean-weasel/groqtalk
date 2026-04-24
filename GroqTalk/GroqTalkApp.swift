@@ -278,19 +278,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             )
         )
 
-        // Find the menu bar button to anchor the popover
+        // Heuristic: find the status bar button to anchor the popover.
+        // Relies on AppKit's internal view hierarchy and may fail if the structure changes.
         if let button = NSApp.windows
             .compactMap({ $0.contentView?.subviews.first as? NSStatusBarButton })
             .first {
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            self.historyPopover = popover
         }
-
-        self.historyPopover = popover
     }
 
     private func retryRecord(_ record: TranscriptionRecord) {
-        guard let audioURL = record.audioFileURL else { return }
+        guard appState.status == .idle || appState.isError else { return }
+        guard let audioURL = record.audioFileURL else {
+            appState.showError("Recording no longer available for retry")
+            return
+        }
+        guard FileManager.default.fileExists(atPath: audioURL.path) else {
+            appState.showError("Recording file was deleted — cannot retry")
+            return
+        }
         historyPopover?.performClose(nil)
+
+        // Infer format from the file extension to match the original recording
+        let format = AudioFormat(rawValue: audioURL.pathExtension) ?? appState.selectedAudioFormat
 
         appState.clearError()
         appState.setStatus(.transcribing)
@@ -299,7 +310,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             guard let apiKey = KeychainHelper.readApiKey() else {
                 stopTranscribingAnimation()
-                appState.showError("No API key")
+                appState.showError("No API key — set one via the menu")
                 return
             }
 
@@ -308,7 +319,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     audioFileURL: audioURL,
                     apiKey: apiKey,
                     model: appState.selectedModel,
-                    format: appState.selectedAudioFormat,
+                    format: format,
                     language: appState.selectedLanguage
                 )
                 stopTranscribingAnimation()

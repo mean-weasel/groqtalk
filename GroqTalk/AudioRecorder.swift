@@ -20,7 +20,7 @@ enum AudioFormat: String, CaseIterable, Codable {
 }
 
 /// Language hint for Whisper transcription. When not `.auto`, the ISO 639-1
-/// code is sent to improve accuracy for non-English audio.
+/// code is included in the API request to constrain language detection and improve accuracy.
 enum Language: String, CaseIterable, Codable {
     case auto
     case en, es, fr, de, pt, it, ja, zh, ko, hi, ar, ru
