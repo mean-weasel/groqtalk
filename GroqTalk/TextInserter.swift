@@ -2,9 +2,9 @@ import AppKit
 import CoreGraphics
 
 struct TextInserter {
-    func insert(text: String) async {
+    func insert(text: String, keepOnClipboard: Bool = false) async {
         let pasteboard = NSPasteboard.general
-        let saved = savePasteboardContents(pasteboard)
+        let saved = keepOnClipboard ? [] : savePasteboardContents(pasteboard)
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -13,7 +13,9 @@ struct TextInserter {
 
         try? await Task.sleep(for: .milliseconds(100))
 
-        restorePasteboardContents(pasteboard, saved: saved)
+        if !keepOnClipboard {
+            restorePasteboardContents(pasteboard, saved: saved)
+        }
     }
 
     private func savePasteboardContents(_ pb: NSPasteboard) -> [(NSPasteboard.PasteboardType, Data)] {

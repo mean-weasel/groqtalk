@@ -26,11 +26,9 @@ restart: stop
 
 install: build
 	-@pkill -x $(APP_NAME) 2>/dev/null; sleep 0.5
-	@tccutil reset Accessibility $(BUNDLE_ID) 2>/dev/null || true
 	rm -rf /Applications/$(APP_NAME).app
 	cp -R $(APP_PATH) /Applications/$(APP_NAME).app
 	@echo "Installed to /Applications/$(APP_NAME).app"
-	@echo "First launch will prompt for Accessibility — grant it once."
 
 uninstall:
 	-@pkill -x $(APP_NAME) 2>/dev/null
