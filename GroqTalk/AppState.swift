@@ -35,6 +35,11 @@ final class AppState {
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "audioFormat") }
     }
 
+    var selectedLanguage: Language {
+        get { Language(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .auto }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "language") }
+    }
+
     var keepOnClipboard: Bool {
         get { UserDefaults.standard.bool(forKey: "keepOnClipboard") }
         set { UserDefaults.standard.set(newValue, forKey: "keepOnClipboard") }
@@ -88,7 +93,8 @@ final class AppState {
             "audioFormat": "m4a",
             "keepOnClipboard": false,
             "recordingMode": "hold",
-            "hotkeyChoice": "rightCommand"
+            "hotkeyChoice": "rightCommand",
+            "language": "auto"
         ])
     }
 

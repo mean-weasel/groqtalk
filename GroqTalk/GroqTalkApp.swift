@@ -133,7 +133,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     audioFileURL: audioURL,
                     apiKey: apiKey,
                     model: appState.selectedModel,
-                    format: appState.selectedAudioFormat
+                    format: appState.selectedAudioFormat,
+                    language: appState.selectedLanguage
                 )
                 stopTranscribingAnimation()
                 history.resolveRetry(id: record.id, text: text)
@@ -200,7 +201,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         audioFileURL: url,
                         apiKey: apiKey,
                         model: self.appState.selectedModel,
-                        format: self.appState.selectedAudioFormat
+                        format: self.appState.selectedAudioFormat,
+                        language: self.appState.selectedLanguage
                     )
                     self.stopTranscribingAnimation()
                     self.history.addSuccess(text: text)

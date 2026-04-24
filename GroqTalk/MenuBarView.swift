@@ -30,6 +30,12 @@ struct MenuBarView: View {
             Text("FLAC (lossless, smaller)").tag(AudioFormat.flac)
         }
 
+        Picker("Language", selection: $appState.selectedLanguage) {
+            ForEach(Language.allCases, id: \.self) { lang in
+                Text(lang.displayName).tag(lang)
+            }
+        }
+
         Menu("Hotkey") {
             // Hotkey choices
             Button {

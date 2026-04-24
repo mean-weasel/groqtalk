@@ -77,6 +77,33 @@ final class LanguageTests: XCTestCase {
                       "Japanese should send language=ja")
     }
 
+    @MainActor
+    func testAppStateDefaultLanguageIsAuto() {
+        UserDefaults.standard.removeObject(forKey: "language")
+        let state = AppState()
+        XCTAssertEqual(state.selectedLanguage, .auto)
+    }
+
+    @MainActor
+    func testAppStateLanguagePersists() {
+        UserDefaults.standard.removeObject(forKey: "language")
+        let state = AppState()
+        state.selectedLanguage = .ja
+        XCTAssertEqual(state.selectedLanguage, .ja)
+
+        let state2 = AppState()
+        XCTAssertEqual(state2.selectedLanguage, .ja)
+        UserDefaults.standard.removeObject(forKey: "language")
+    }
+
+    @MainActor
+    func testAppStateInvalidLanguageFallsBackToAuto() {
+        UserDefaults.standard.set("invalid", forKey: "language")
+        let state = AppState()
+        XCTAssertEqual(state.selectedLanguage, .auto)
+        UserDefaults.standard.removeObject(forKey: "language")
+    }
+
     func testMultipartBodyLanguageFieldPerLanguage() throws {
         let service = TranscriptionService()
         let tempURL = FileManager.default.temporaryDirectory
