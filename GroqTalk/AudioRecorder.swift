@@ -19,6 +19,31 @@ enum AudioFormat: String, CaseIterable, Codable {
     }
 }
 
+/// Language hint for Whisper transcription. When not `.auto`, the ISO 639-1
+/// code is sent to improve accuracy for non-English audio.
+enum Language: String, CaseIterable, Codable {
+    case auto
+    case en, es, fr, de, pt, it, ja, zh, ko, hi, ar, ru
+
+    var displayName: String {
+        switch self {
+        case .auto: "Auto-detect"
+        case .en:   "English"
+        case .es:   "Spanish"
+        case .fr:   "French"
+        case .de:   "German"
+        case .pt:   "Portuguese"
+        case .it:   "Italian"
+        case .ja:   "Japanese"
+        case .zh:   "Chinese"
+        case .ko:   "Korean"
+        case .hi:   "Hindi"
+        case .ar:   "Arabic"
+        case .ru:   "Russian"
+        }
+    }
+}
+
 final class AudioRecorder {
     private var audioEngine: AVAudioEngine?
     private var buffers: [AVAudioPCMBuffer] = []
