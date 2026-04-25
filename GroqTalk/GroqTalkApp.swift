@@ -35,6 +35,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let textInserter = TextInserter()
     private let soundPlayer = SoundPlayer()
 
+    private var pendingTarget: PasteTarget?
+    private var pasteQueue: PasteQueue!
+
     private var recordingTimer: Timer?
     private var transcribingTimer: Timer?
     private var historyPopover: NSPopover?
@@ -61,6 +64,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - App lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        pasteQueue = PasteQueue { [weak self] text, target, keepOnClipboard in
+            guard let self else { return }
+            await self.textInserter.insertAtTarget(text: text, target: target, keepOnClipboard: keepOnClipboard)
+        }
         wireHotkeyMonitor()
         applyHotkeyConfig()
         startHotkeyMonitorWithRetry()
@@ -133,6 +140,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.appState.setStatus(.recording)
                     self.startRecordingTimer()
                     self.soundPlayer.playStartSound()
+                    if self.appState.asyncPasteEnabled {
+                        self.pendingTarget = PasteTarget.captureCurrentTarget()
+                    }
                 } catch {
                     self.appState.showError("Microphone unavailable")
                 }
@@ -178,11 +188,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     )
                     self.stopTranscribingAnimation()
                     self.history.addSuccess(text: text)
-                    await self.textInserter.insert(
-                        text: text,
-                        keepOnClipboard: self.appState.keepOnClipboard
-                    )
                     self.appState.setStatus(.idle)
+
+                    if self.appState.asyncPasteEnabled, let target = self.pendingTarget {
+                        self.pendingTarget = nil
+                        await self.pasteQueue.enqueue(
+                            text: text, target: target,
+                            keepOnClipboard: self.appState.keepOnClipboard
+                        )
+                    } else {
+                        await self.textInserter.insert(
+                            text: text,
+                            keepOnClipboard: self.appState.keepOnClipboard
+                        )
+                    }
                     try? FileManager.default.removeItem(at: url)
                 } catch {
                     self.stopTranscribingAnimation()
@@ -199,6 +218,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.stopRecordingTimer()
                 self.audioRecorder.cancelRecording()
                 self.appState.setStatus(.idle)
+                self.pendingTarget = nil
             }
         }
     }
