@@ -171,21 +171,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self.appState.setStatus(.transcribing)
                 self.startTranscribingAnimation()
 
+                #if !MOCK_TRANSCRIPTION
                 guard let apiKey = KeychainHelper.readApiKey() else {
                     self.stopTranscribingAnimation()
                     self.history.addFailure(error: "No API key", audioFileURL: url)
                     self.appState.showError("No API key — set one via the menu")
                     return
                 }
+                #endif
 
                 do {
-                    let text = try await self.transcriptionService.transcribe(
+                    let text: String
+                    #if MOCK_TRANSCRIPTION
+                    try await Task.sleep(for: .seconds(2))
+                    text = "Mock transcription at \(Date().formatted(date: .omitted, time: .standard))"
+                    #else
+                    text = try await self.transcriptionService.transcribe(
                         audioFileURL: url,
                         apiKey: apiKey,
                         model: self.appState.selectedModel,
                         format: self.appState.selectedAudioFormat,
                         language: self.appState.selectedLanguage
                     )
+                    #endif
                     self.stopTranscribingAnimation()
                     self.history.addSuccess(text: text)
                     self.appState.setStatus(.idle)
