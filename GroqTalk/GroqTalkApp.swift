@@ -64,6 +64,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - App lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DiagnosticLog.write("applicationDidFinishLaunching")
         pasteQueue = PasteQueue { [weak self] text, target, keepOnClipboard in
             guard let self else { return }
             await self.textInserter.insertAsync(text: text, target: target, keepOnClipboard: keepOnClipboard)
@@ -133,13 +134,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private func wireHotkeyMonitor() {
         hotkeyMonitor.onRecordingStarted = { [weak self] in
             guard let self else { return }
-            // Capture the paste target SYNCHRONOUSLY in the CGEvent callback,
-            // before any Task dispatch or UI updates that could shift focus.
-            let capturedTarget: PasteTarget? = self.appState.asyncPasteEnabled
-                ? PasteTarget.captureCurrentTarget()
-                : nil
+            // Don't start a new recording while transcription is in-flight.
+            // The CGEvent callback runs on the main run loop, so we can read
+            // appState.status synchronously here.
+            guard self.appState.status != .transcribing else {
+                DiagnosticLog.write("onRecordingStarted: SKIPPED — transcription in flight")
+                return
+            }
+            let asyncEnabled = UserDefaults.standard.bool(forKey: "asyncPasteEnabled")
+            // Only capture on the FIRST press. If a debounce-cancel caused a
+            // re-trigger, the user may have already moved — keep the original target.
+            let capturedTarget: PasteTarget?
+            if asyncEnabled && self.pendingTarget == nil {
+                capturedTarget = PasteTarget.captureCurrentTarget()
+            } else {
+                capturedTarget = nil  // signal: don't overwrite
+            }
+            DiagnosticLog.write("onRecordingStarted: asyncEnabled=\(asyncEnabled) capturedTarget=\(String(describing: capturedTarget)) existingTarget=\(self.pendingTarget != nil)")
             Task { @MainActor in
-                self.pendingTarget = capturedTarget
+                // Only set if we actually captured a new target
+                if let target = capturedTarget {
+                    self.pendingTarget = target
+                }
                 self.appState.clearError()
                 do {
                     try self.audioRecorder.startRecording()
@@ -153,7 +169,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hotkeyMonitor.onRecordingStopped = { [weak self] in
             guard let self else { return }
+            guard self.appState.status == .recording else {
+                DiagnosticLog.write("onRecordingStopped: SKIPPED — not recording (status=\(self.appState.status))")
+                return
+            }
+            DiagnosticLog.write("onRecordingStopped fired")
             Task { @MainActor in
+                DiagnosticLog.write("onRecordingStopped Task executing")
                 self.stopRecordingTimer()
 
                 let url: URL
@@ -161,11 +183,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     guard let recordedURL = try self.audioRecorder.stopRecording(
                         format: self.appState.selectedAudioFormat
                     ) else {
+                        DiagnosticLog.write("onRecordingStopped: no audio file, returning")
                         self.appState.setStatus(.idle)
                         return
                     }
                     url = recordedURL
                 } catch {
+                    DiagnosticLog.write("onRecordingStopped: error \(error)")
                     self.appState.showError("Failed to save recording")
                     return
                 }
@@ -201,13 +225,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     self.history.addSuccess(text: text)
                     self.appState.setStatus(.idle)
 
-                    if self.appState.asyncPasteEnabled, let target = self.pendingTarget {
+                    let asyncOn = self.appState.asyncPasteEnabled
+                    let hasPending = self.pendingTarget != nil
+                    DiagnosticLog.write("paste decision: asyncOn=\(asyncOn) hasPending=\(hasPending) target=\(String(describing: self.pendingTarget))")
+
+                    if asyncOn, let target = self.pendingTarget {
                         self.pendingTarget = nil
+                        DiagnosticLog.write("ASYNC PATH: pasting into \(target.appName) pid=\(target.pid)")
                         await self.pasteQueue.enqueue(
                             text: text, target: target,
                             keepOnClipboard: self.appState.keepOnClipboard
                         )
                     } else {
+                        self.pendingTarget = nil
+                        DiagnosticLog.write("SYNC PATH: pasting into current app")
                         await self.textInserter.insert(
                             text: text,
                             keepOnClipboard: self.appState.keepOnClipboard
@@ -225,11 +256,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         hotkeyMonitor.onRecordingCancelled = { [weak self] in
             guard let self else { return }
+            DiagnosticLog.write("onRecordingCancelled")
             Task { @MainActor in
                 self.stopRecordingTimer()
                 self.audioRecorder.cancelRecording()
                 self.appState.setStatus(.idle)
-                self.pendingTarget = nil
+                // Do NOT clear pendingTarget here — a debounce-cancel is often
+                // followed immediately by a new onRecordingStarted, and we want
+                // to preserve the original capture from the first press.
+                // pendingTarget is cleared after a successful paste or when
+                // the transcription result is delivered.
             }
         }
     }

@@ -143,7 +143,9 @@ final class HotkeyMonitor {
 
         if type == .flagsChanged {
             let rawFlags = event.flags.rawValue
-            let targetActive = (rawFlags & hotkeyChoice.deviceFlagBit) != 0
+            let deviceBit = hotkeyChoice.deviceFlagBit
+            let targetActive = (rawFlags & deviceBit) != 0
+            DiagnosticLog.write("flagsChanged: rawFlags=\(String(rawFlags, radix: 16)) deviceBit=\(String(deviceBit, radix: 16)) targetActive=\(targetActive)")
             handleKeyStateChange(pressed: targetActive)
         } else if type == .keyDown && keyDown {
             if !otherKeysDuringHold {

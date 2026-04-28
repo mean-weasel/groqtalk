@@ -19,45 +19,40 @@ final class AppState {
     var transcribingIconFrame: Int = 0
 
     // MARK: - UserDefaults-backed preferences
+    //
+    // These are stored properties so that @Observable can track mutations.
+    // Each didSet syncs the value back to UserDefaults for persistence.
 
-    var soundEffectsEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "soundEffectsEnabled") }
-        set { UserDefaults.standard.set(newValue, forKey: "soundEffectsEnabled") }
+    var soundEffectsEnabled: Bool = true {
+        didSet { UserDefaults.standard.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
     }
 
-    var selectedModel: String {
-        get { UserDefaults.standard.string(forKey: "whisperModel") ?? "whisper-large-v3-turbo" }
-        set { UserDefaults.standard.set(newValue, forKey: "whisperModel") }
+    var selectedModel: String = "whisper-large-v3-turbo" {
+        didSet { UserDefaults.standard.set(selectedModel, forKey: "whisperModel") }
     }
 
-    var selectedAudioFormat: AudioFormat {
-        get { AudioFormat(rawValue: UserDefaults.standard.string(forKey: "audioFormat") ?? "") ?? .m4a }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "audioFormat") }
+    var selectedAudioFormat: AudioFormat = .m4a {
+        didSet { UserDefaults.standard.set(selectedAudioFormat.rawValue, forKey: "audioFormat") }
     }
 
-    var selectedLanguage: Language {
-        get { Language(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .auto }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "language") }
+    var selectedLanguage: Language = .auto {
+        didSet { UserDefaults.standard.set(selectedLanguage.rawValue, forKey: "language") }
     }
 
-    var keepOnClipboard: Bool {
-        get { UserDefaults.standard.bool(forKey: "keepOnClipboard") }
-        set { UserDefaults.standard.set(newValue, forKey: "keepOnClipboard") }
+    var keepOnClipboard: Bool = false {
+        didSet { UserDefaults.standard.set(keepOnClipboard, forKey: "keepOnClipboard") }
     }
 
-    var asyncPasteEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "asyncPasteEnabled") }
-        set { UserDefaults.standard.set(newValue, forKey: "asyncPasteEnabled") }
+    var asyncPasteEnabled: Bool = false {
+        didSet { UserDefaults.standard.set(asyncPasteEnabled, forKey: "asyncPasteEnabled") }
     }
 
-    var recordingMode: HotkeyMonitor.RecordingMode {
-        get { HotkeyMonitor.RecordingMode(rawValue: UserDefaults.standard.string(forKey: "recordingMode") ?? "") ?? .hold }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "recordingMode") }
+    var recordingMode: HotkeyMonitor.RecordingMode = .hold {
+        didSet { UserDefaults.standard.set(recordingMode.rawValue, forKey: "recordingMode") }
     }
 
-    var hotkeyChoice: HotkeyMonitor.HotkeyChoice {
-        get { HotkeyMonitor.HotkeyChoice(rawValue: UserDefaults.standard.string(forKey: "hotkeyChoice") ?? "") ?? .rightCommand }
-        set { UserDefaults.standard.set(newValue.rawValue, forKey: "hotkeyChoice") }
+    var hotkeyChoice: HotkeyMonitor.HotkeyChoice = .rightCommand {
+        didSet { UserDefaults.standard.set(hotkeyChoice.rawValue, forKey: "hotkeyChoice") }
     }
 
     var hasApiKey: Bool { KeychainHelper.readApiKey() != nil }
@@ -92,7 +87,8 @@ final class AppState {
     }
 
     init() {
-        UserDefaults.standard.register(defaults: [
+        let defaults = UserDefaults.standard
+        defaults.register(defaults: [
             "soundEffectsEnabled": true,
             "whisperModel": "whisper-large-v3-turbo",
             "audioFormat": "m4a",
@@ -102,6 +98,17 @@ final class AppState {
             "hotkeyChoice": "rightCommand",
             "language": "auto"
         ])
+
+        // Load persisted values into stored properties.
+        // didSet does NOT fire during init, so no redundant writes.
+        soundEffectsEnabled = defaults.bool(forKey: "soundEffectsEnabled")
+        selectedModel = defaults.string(forKey: "whisperModel") ?? "whisper-large-v3-turbo"
+        selectedAudioFormat = AudioFormat(rawValue: defaults.string(forKey: "audioFormat") ?? "") ?? .m4a
+        selectedLanguage = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
+        keepOnClipboard = defaults.bool(forKey: "keepOnClipboard")
+        asyncPasteEnabled = defaults.bool(forKey: "asyncPasteEnabled")
+        recordingMode = HotkeyMonitor.RecordingMode(rawValue: defaults.string(forKey: "recordingMode") ?? "") ?? .hold
+        hotkeyChoice = HotkeyMonitor.HotkeyChoice(rawValue: defaults.string(forKey: "hotkeyChoice") ?? "") ?? .rightCommand
     }
 
     func setStatus(_ newStatus: Status) {

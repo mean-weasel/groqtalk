@@ -36,17 +36,21 @@ struct TextInserter {
             return
         }
 
-        // Raise the specific window first, then activate the app.
-        // This order ensures macOS brings the correct window to front
-        // (not just any window of the target app).
-        if let window = target.windowElement {
-            AXUIElementPerformAction(window, kAXRaiseAction as CFString)
-        }
+        // Activate the app first, then forcefully raise the specific window.
+        // Some apps (terminals, browsers) need the app to be active before
+        // AXRaise will take effect on a specific window.
         targetApp.activate()
+        try? await Task.sleep(for: .milliseconds(50))
 
-        // 3. Wait for activation to settle — 200ms gives macOS enough time
-        //    to complete the window server focus switch, especially for
-        //    heavyweight apps like terminals and browsers.
+        if let window = target.windowElement {
+            let raiseResult = AXUIElementPerformAction(window, kAXRaiseAction as CFString)
+            // Also try setting this as the main/focused window
+            AXUIElementSetAttributeValue(window, kAXMainAttribute as CFString, true as CFTypeRef)
+            AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString, true as CFTypeRef)
+            DiagnosticLog.write("insertAtTarget: AXRaise result=\(raiseResult.rawValue) window=\(window)")
+        }
+
+        // Wait for activation + window raise to settle
         try? await Task.sleep(for: .milliseconds(200))
 
         // 4. Paste using the existing mechanism
