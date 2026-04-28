@@ -59,6 +59,22 @@ struct TextInserter {
         currentApp?.activate()
     }
 
+    /// Primary entry point for async paste. Tries SkyLight background
+    /// paste (Tier 1), falls back to window choreography (Tier 2).
+    func insertAsync(text: String, target: PasteTarget, keepOnClipboard: Bool) async {
+        // Tier 1: SkyLight background paste (invisible)
+        if await BackgroundPaste.attempt(
+            text: text, target: target, keepOnClipboard: keepOnClipboard
+        ) {
+            DiagnosticLog.write("insertAsync: Tier 1 (SkyLight) succeeded for \(target.appName)")
+            return
+        }
+
+        // Tier 2: Window choreography (existing behavior)
+        DiagnosticLog.write("insertAsync: falling back to Tier 2 (choreography) for \(target.appName)")
+        await insertAtTarget(text: text, target: target, keepOnClipboard: keepOnClipboard)
+    }
+
     private func savePasteboardContents(_ pb: NSPasteboard) -> [(NSPasteboard.PasteboardType, Data)] {
         var saved: [(NSPasteboard.PasteboardType, Data)] = []
         guard let items = pb.pasteboardItems else { return saved }
