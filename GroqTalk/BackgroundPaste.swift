@@ -82,7 +82,9 @@ struct BackgroundPaste {
     }
 
     /// Find a text area or text field within a window's AX tree.
-    private static func findTextArea(in element: AXUIElement) -> AXUIElement? {
+    private static func findTextArea(in element: AXUIElement, depth: Int = 0) -> AXUIElement? {
+        guard depth < 20 else { return nil }
+
         var roleRef: CFTypeRef?
         AXUIElementCopyAttributeValue(element, kAXRoleAttribute as CFString, &roleRef)
         let role = roleRef as? String ?? ""
@@ -92,7 +94,7 @@ struct BackgroundPaste {
         AXUIElementCopyAttributeValue(element, kAXChildrenAttribute as CFString, &childrenRef)
         if let children = childrenRef as? [AXUIElement] {
             for child in children {
-                if let found = findTextArea(in: child) { return found }
+                if let found = findTextArea(in: child, depth: depth + 1) { return found }
             }
         }
         return nil
@@ -149,9 +151,12 @@ struct BackgroundPaste {
 
         try? await Task.sleep(for: .milliseconds(100))
 
-        SkyLightBridge.focusWithoutRaise(
+        let restored = SkyLightBridge.focusWithoutRaise(
             targetPid: current.pid, targetWindowID: current.windowID
         )
+        if !restored {
+            DiagnosticLog.write("BackgroundPaste: failed to restore focus to pid=\(current.pid)")
+        }
 
         if !keepOnClipboard {
             restorePasteboardContents(pasteboard, saved: saved)
