@@ -63,9 +63,15 @@ final class GroqTalkUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["No transcriptions yet"].waitForExistence(timeout: 2))
     }
 
-    func testSettingsWindowOpensAndShowsCoreTabs() {
+    func testSettingsPanelOpensInsideMenuBarPopover() {
         app.buttons["Settings"].click()
-        XCTAssertTrue(app.windows["Settings"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.windows["Settings"].waitForExistence(timeout: 1))
+        XCTAssertTrue(app.staticTexts["General"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Recording"].exists)
+        XCTAssertTrue(app.staticTexts["Transcription"].exists)
+        XCTAssertTrue(app.staticTexts["Paste"].exists)
+        XCTAssertTrue(app.staticTexts["Privacy"].exists)
+        XCTAssertTrue(app.buttons["Change API Key"].exists)
     }
 
     func testMockTogglePersistsAcrossLaunches() {
