@@ -12,7 +12,14 @@ struct MenuBarView: View {
     var onSimulateSuccess: (() -> Void)?
     var onSimulateFailure: (() -> Void)?
 
+    @State private var selectedPanel: Panel = .control
+
     @Environment(\.openWindow) private var openWindow
+
+    private enum Panel {
+        case control
+        case settings
+    }
 
     private var lastSuccess: TranscriptionRecord? {
         history.records.first { !$0.isFailure }
@@ -21,9 +28,13 @@ struct MenuBarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             toolbarActions
-            statusHeader
-            lastResultSection
-            quickControls
+            if selectedPanel == .control {
+                statusHeader
+                lastResultSection
+                quickControls
+            } else {
+                embeddedSettings
+            }
         }
         .accessibilityIdentifier("menu.controlCenter")
         .padding(14)
@@ -33,18 +44,28 @@ struct MenuBarView: View {
     private var toolbarActions: some View {
         HStack(spacing: 8) {
             Button {
-                openHistory()
+                selectedPanel = .control
             } label: {
-                Label("History", systemImage: "clock")
+                Label("Control", systemImage: "waveform")
             }
-            .accessibilityIdentifier("menu.historyButton")
+            .accessibilityIdentifier("menu.controlButton")
+            .foregroundStyle(selectedPanel == .control ? .primary : .secondary)
 
             Button {
-                openSettingsView()
+                selectedPanel = .settings
             } label: {
                 Label("Settings", systemImage: "gearshape")
             }
             .accessibilityIdentifier("menu.settingsButton")
+            .foregroundStyle(selectedPanel == .settings ? .primary : .secondary)
+
+            Button {
+                openHistory()
+            } label: {
+                Image(systemName: "clock")
+            }
+            .accessibilityLabel("History")
+            .accessibilityIdentifier("menu.historyButton")
 
             Spacer()
 
@@ -67,6 +88,129 @@ struct MenuBarView: View {
             .help("Quit GroqTalk")
         }
         .buttonStyle(.borderless)
+    }
+
+    private var embeddedSettings: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                settingsSection("General") {
+                    Toggle("Sound effects", isOn: $appState.soundEffectsEnabled)
+                        .accessibilityIdentifier("menu.settings.soundEffectsToggle")
+                    Toggle("Keep final text on clipboard", isOn: $appState.keepOnClipboard)
+                        .accessibilityIdentifier("menu.settings.keepClipboardToggle")
+                }
+
+                settingsSection("Recording") {
+                    Picker("Hotkey", selection: $appState.hotkeyChoice) {
+                        Text("Right Command").tag(HotkeyMonitor.HotkeyChoice.rightCommand)
+                        Text("Right Option").tag(HotkeyMonitor.HotkeyChoice.rightOption)
+                        Text("Globe / Fn").tag(HotkeyMonitor.HotkeyChoice.globeFn)
+                    }
+                    .accessibilityIdentifier("menu.settings.hotkeyPicker")
+                    .onChange(of: appState.hotkeyChoice) { _, _ in onHotkeyChanged?() }
+
+                    Picker("Mode", selection: $appState.recordingMode) {
+                        Text("Hold to record").tag(HotkeyMonitor.RecordingMode.hold)
+                        Text("Toggle").tag(HotkeyMonitor.RecordingMode.toggle)
+                    }
+                    .accessibilityIdentifier("menu.settings.recordingModePicker")
+                    .onChange(of: appState.recordingMode) { _, _ in onHotkeyChanged?() }
+
+                    Picker("Audio format", selection: $appState.selectedAudioFormat) {
+                        Text("M4A").tag(AudioFormat.m4a)
+                        Text("WAV").tag(AudioFormat.wav)
+                        Text("FLAC").tag(AudioFormat.flac)
+                    }
+                    .accessibilityIdentifier("menu.settings.audioFormatPicker")
+
+                    Picker("Language", selection: $appState.selectedLanguage) {
+                        ForEach(Language.allCases, id: \.self) { lang in
+                            Text(lang.displayName).tag(lang)
+                        }
+                    }
+                    .accessibilityIdentifier("menu.settings.languagePicker")
+                }
+
+                settingsSection("Transcription") {
+                    HStack {
+                        Text("Groq API key")
+                        Spacer()
+                        Label(
+                            appState.hasApiKey ? "Saved" : "Missing",
+                            systemImage: appState.hasApiKey ? "checkmark.circle.fill" : "exclamationmark.circle"
+                        )
+                        .foregroundStyle(appState.hasApiKey ? .green : .orange)
+                    }
+
+                    Button {
+                        openWindow(id: "api-key-setup")
+                    } label: {
+                        Label("Change API Key", systemImage: "key")
+                    }
+                    .accessibilityIdentifier("menu.settings.changeApiKeyButton")
+
+                    Picker("Whisper model", selection: $appState.selectedModel) {
+                        Text("Large V3 Turbo").tag("whisper-large-v3-turbo")
+                        Text("Large V3").tag("whisper-large-v3")
+                    }
+                    .accessibilityIdentifier("menu.settings.whisperModelPicker")
+
+                    Picker("After transcription", selection: $appState.transcriptProcessingMode) {
+                        ForEach(TranscriptProcessingMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .accessibilityIdentifier("menu.settings.transcriptProcessingPicker")
+
+                    if appState.transcriptProcessingMode != .raw {
+                        Picker("Cleanup model", selection: $appState.transcriptCleanupModel) {
+                            Text("Llama 3.3 70B Versatile").tag("llama-3.3-70b-versatile")
+                            Text("Llama 3.1 8B Instant").tag("llama-3.1-8b-instant")
+                        }
+                        .accessibilityIdentifier("menu.settings.cleanupModelPicker")
+                    }
+
+                    #if DEBUG
+                    Toggle("Mock Transcription", isOn: $appState.mockTranscriptionEnabled)
+                        .accessibilityIdentifier("menu.settings.mockToggle")
+                    #endif
+                }
+
+                settingsSection("Paste") {
+                    Toggle("Paste where recording started", isOn: $appState.asyncPasteEnabled)
+                        .accessibilityIdentifier("menu.settings.asyncPasteToggle")
+                    Text(appState.asyncPasteEnabled ? "Captures the target app when recording starts and returns focus after pasting." : "Pastes into the app active when transcription finishes.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                settingsSection("Privacy") {
+                    LabeledContent("History retention", value: "Last \(TranscriptionHistory.maxRecords) records")
+                    LabeledContent("Stored records", value: "\(history.records.count)")
+
+                    Button("Clear History", role: .destructive) {
+                        history.clear()
+                    }
+                    .accessibilityIdentifier("menu.settings.clearHistoryButton")
+                    .disabled(history.records.isEmpty)
+                }
+            }
+            .padding(.trailing, 4)
+        }
+        .frame(maxHeight: 560)
+        .accessibilityIdentifier("menu.settingsPanel")
+    }
+
+    private func settingsSection<Content: View>(
+        _ title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var statusHeader: some View {
@@ -259,10 +403,6 @@ struct MenuBarView: View {
     }
 
     private func openSettingsView() {
-        if let onOpenSettings {
-            onOpenSettings()
-        } else {
-            openWindow(id: "settings")
-        }
+        selectedPanel = .settings
     }
 }
