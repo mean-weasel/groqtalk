@@ -39,6 +39,16 @@ struct GroqTalkApp: App {
         }
         .defaultSize(width: 620, height: 560)
 
+        Window("Settings", id: "settings") {
+            SettingsView(
+                appState: appDelegate.appState,
+                history: appDelegate.history,
+                onHotkeyChanged: { [weak appDelegate] in appDelegate?.applyHotkeyConfig() }
+            )
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+
         Settings {
             SettingsView(
                 appState: appDelegate.appState,

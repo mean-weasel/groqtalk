@@ -13,7 +13,6 @@ struct MenuBarView: View {
     var onSimulateFailure: (() -> Void)?
 
     @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
 
     private var lastSuccess: TranscriptionRecord? {
         history.records.first { !$0.isFailure }
@@ -21,14 +20,53 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            toolbarActions
             statusHeader
             lastResultSection
             quickControls
-            footerActions
         }
         .accessibilityIdentifier("menu.controlCenter")
         .padding(14)
         .frame(width: 360)
+    }
+
+    private var toolbarActions: some View {
+        HStack(spacing: 8) {
+            Button {
+                openHistory()
+            } label: {
+                Label("History", systemImage: "clock")
+            }
+            .accessibilityIdentifier("menu.historyButton")
+
+            Button {
+                openSettingsView()
+            } label: {
+                Label("Settings", systemImage: "gearshape")
+            }
+            .accessibilityIdentifier("menu.settingsButton")
+
+            Spacer()
+
+            if history.retryableRecord != nil {
+                Button {
+                    onRetry?()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .accessibilityLabel("Retry Last Failure")
+                .help("Retry Last Failure")
+            }
+
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Image(systemName: "power")
+            }
+            .accessibilityLabel("Quit GroqTalk")
+            .help("Quit GroqTalk")
+        }
+        .buttonStyle(.borderless)
     }
 
     private var statusHeader: some View {
@@ -164,43 +202,6 @@ struct MenuBarView: View {
         }
     }
 
-    private var footerActions: some View {
-        HStack {
-            Button {
-                openHistory()
-            } label: {
-                Label("History", systemImage: "clock")
-            }
-            .accessibilityIdentifier("menu.historyButton")
-
-            Button {
-                openSettingsView()
-            } label: {
-                Label("Settings", systemImage: "gearshape")
-            }
-            .accessibilityIdentifier("menu.settingsButton")
-
-            Spacer()
-
-            if history.retryableRecord != nil {
-                Button {
-                    onRetry?()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-                .help("Retry Last Failure")
-            }
-
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Image(systemName: "power")
-            }
-            .help("Quit GroqTalk")
-        }
-        .buttonStyle(.borderless)
-    }
-
     private var statusTitle: String {
         switch appState.status {
         case .idle: "Ready"
@@ -261,7 +262,7 @@ struct MenuBarView: View {
         if let onOpenSettings {
             onOpenSettings()
         } else {
-            openSettings()
+            openWindow(id: "settings")
         }
     }
 }
