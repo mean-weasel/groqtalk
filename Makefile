@@ -5,7 +5,7 @@ CONFIG := Debug
 BUILD_DIR := $(shell xcodebuild -scheme $(SCHEME) -configuration $(CONFIG) -destination 'platform=macOS' -showBuildSettings 2>/dev/null | grep -m1 BUILT_PRODUCTS_DIR | awk '{print $$NF}')
 APP_PATH := $(BUILD_DIR)/$(APP_NAME).app
 
-.PHONY: build run start stop restart install uninstall clean test test-ui test-cross-app qa
+.PHONY: build run start stop restart install uninstall clean test test-ui test-cross-app test-app-smoke test-cleanup-quality qa
 
 build:
 	xcodebuild -scheme $(SCHEME) -configuration $(CONFIG) -destination 'platform=macOS' build 2>&1 | tail -3
@@ -45,6 +45,12 @@ test-cross-app:
 	swift tests/test_async_paste.swift
 	swift tests/test_skylight_paste.swift
 	swift tests/test_cross_app_async_paste.swift
+
+test-app-smoke:
+	swift tests/test_app_mock_async_paste.swift
+
+test-cleanup-quality:
+	swift tests/test_cleanup_quality.swift
 
 qa:
 	@echo "=== Unit tests ==="
