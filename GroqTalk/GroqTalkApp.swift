@@ -51,6 +51,8 @@ struct GroqTalkApp: App {
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
+    static let automationMockSuccessNotification = Notification.Name("com.neonwatty.GroqTalk.automation.mockSuccess")
+
     let appState: AppState
     let history: TranscriptionHistory
 
@@ -114,6 +116,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return await self.textInserter.insertAsync(text: text, target: target, keepOnClipboard: keepOnClipboard)
         }
         configureUITestingIfNeeded()
+        configureAutomationSmokeIfNeeded()
         wireHotkeyMonitor()
         applyHotkeyConfig()
         if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
@@ -153,6 +156,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         showUITestWindow()
+    }
+
+    private func configureAutomationSmokeIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("--automation-smoke") else { return }
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(runAutomationMockSuccess),
+            name: Self.automationMockSuccessNotification,
+            object: nil
+        )
+        DiagnosticLog.write("automation smoke: enabled")
+    }
+
+    @objc private func runAutomationMockSuccess() {
+        let target = PasteTarget.captureCurrentTarget()
+        DiagnosticLog.write("automation smoke: requested target=\(String(describing: target))")
+        Task { @MainActor in
+            appState.asyncPasteEnabled = true
+            #if DEBUG
+            appState.mockTranscriptionEnabled = true
+            #endif
+            appState.clearError()
+            appState.setStatus(.transcribing)
+            startTranscribingAnimation()
+            try? await Task.sleep(for: .milliseconds(500))
+            stopTranscribingAnimation()
+
+            let text = "Mock transcription automation smoke"
+            history.addSuccess(text: text)
+            appState.setStatus(.idle)
+
+            if let target,
+               let delivery = await pasteQueue.enqueue(
+                   text: text,
+                   target: target,
+                   keepOnClipboard: appState.keepOnClipboard
+               ) {
+                DiagnosticLog.write("ASYNC PATH: automation smoke pasted into \(target.appName) pid=\(target.pid)")
+                appState.recordPaste(delivery)
+            } else {
+                let delivery = await textInserter.insert(
+                    text: text,
+                    keepOnClipboard: appState.keepOnClipboard
+                )
+                appState.recordPaste(delivery)
+            }
+        }
     }
 
     private func showUITestWindow() {

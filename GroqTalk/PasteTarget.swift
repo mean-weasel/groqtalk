@@ -15,8 +15,8 @@ struct PasteTarget {
     var isValid: Bool { pid > 0 }
 
     /// Captures the currently focused window and owning process.
-    /// Returns nil when Accessibility permissions are not granted or no
-    /// focused window can be determined.
+    /// Falls back to the main window, then the first app window, because some
+    /// apps intermittently expose no focused window even while frontmost.
     static func captureCurrentTarget() -> PasteTarget? {
         guard let frontApp = NSWorkspace.shared.frontmostApplication else {
             return nil
@@ -26,22 +26,44 @@ struct PasteTarget {
 
         let appName = frontApp.localizedName ?? ""
         let appElement = AXUIElementCreateApplication(pid)
-        var windowRef: CFTypeRef?
-        let result = AXUIElementCopyAttributeValue(
-            appElement,
-            kAXFocusedWindowAttribute as CFString,
-            &windowRef
-        )
 
-        let window: AXUIElement?
-        if result == .success, let ref = windowRef {
-            // swiftlint:disable:next force_cast
-            window = (ref as! AXUIElement)
-        } else {
-            window = nil
-        }
+        let window = firstWindow(
+            appElement: appElement,
+            attributes: [
+                kAXFocusedWindowAttribute as String,
+                kAXMainWindowAttribute as String
+            ]
+        ) ?? firstWindowInList(appElement: appElement)
 
         let windowID = window.flatMap { SkyLightBridge.windowID(from: $0) }
         return PasteTarget(windowElement: window, windowID: windowID, pid: pid, appName: appName)
+    }
+
+    private static func firstWindow(appElement: AXUIElement, attributes: [String]) -> AXUIElement? {
+        for attribute in attributes {
+            var windowRef: CFTypeRef?
+            let result = AXUIElementCopyAttributeValue(
+                appElement,
+                attribute as CFString,
+                &windowRef
+            )
+            if result == .success, let ref = windowRef {
+                // swiftlint:disable:next force_cast
+                return (ref as! AXUIElement)
+            }
+        }
+        return nil
+    }
+
+    private static func firstWindowInList(appElement: AXUIElement) -> AXUIElement? {
+        var windowRef: CFTypeRef?
+        let result = AXUIElementCopyAttributeValue(
+            appElement,
+            kAXWindowsAttribute as CFString,
+            &windowRef
+        )
+        guard result == .success,
+              let windows = windowRef as? [AXUIElement] else { return nil }
+        return windows.first
     }
 }
