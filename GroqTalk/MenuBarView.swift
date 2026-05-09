@@ -117,6 +117,7 @@ struct MenuBarView: View {
                         title: "Accessibility",
                         state: appState.accessibilityState,
                         actionTitle: "Open Settings",
+                        recoveryDetail: "Open Privacy & Security and turn on GroqTalk.",
                         action: onOpenAccessibility
                     )
                     Picker("Hotkey", selection: $appState.hotkeyChoice) {
@@ -154,6 +155,7 @@ struct MenuBarView: View {
                         title: "Groq API key",
                         state: appState.apiKeyState,
                         actionTitle: "Change",
+                        recoveryDetail: "Add your Groq API key to enable transcription.",
                         action: { openWindow(id: "api-key-setup") }
                     )
                     Button {
@@ -246,18 +248,21 @@ struct MenuBarView: View {
                 title: "Accessibility",
                 state: appState.accessibilityState,
                 actionTitle: "Open Settings",
+                recoveryDetail: "Open Privacy & Security and turn on GroqTalk.",
                 action: onOpenAccessibility
             )
             permissionRow(
                 title: "Microphone",
                 state: appState.microphoneState,
                 actionTitle: "Open Settings",
+                recoveryDetail: "Open Microphone privacy and allow GroqTalk.",
                 action: onOpenMicrophone
             )
             permissionRow(
                 title: "Groq API key",
                 state: appState.apiKeyState,
                 actionTitle: "Add Key",
+                recoveryDetail: "Add your Groq API key to enable transcription.",
                 action: { openWindow(id: "api-key-setup") }
             )
 
@@ -272,51 +277,74 @@ struct MenuBarView: View {
     }
 
     private var setupCheckRow: some View {
-        HStack(spacing: 8) {
-            Label(setupCheckTitle, systemImage: setupCheckIcon)
-                .foregroundStyle(setupCheckColor)
-                .accessibilityIdentifier("menu.setup.test.label")
-            Spacer()
-            Text(setupCheckDetail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .accessibilityIdentifier("menu.setup.test.state")
-            Button(setupCheckButtonTitle) {
-                onRunSetupCheck?()
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Label(setupCheckTitle, systemImage: setupCheckIcon)
+                    .foregroundStyle(setupCheckColor)
+                    .accessibilityIdentifier("menu.setup.test.label")
+                Spacer()
+                Text(setupCheckDetail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("menu.setup.test.state")
+                Button(setupCheckButtonTitle) {
+                    onRunSetupCheck?()
+                }
+                .buttonStyle(.borderless)
+                .disabled(appState.isSetupCheckRunning)
+                .accessibilityIdentifier("menu.setup.test.action")
             }
-            .buttonStyle(.borderless)
-            .disabled(appState.isSetupCheckRunning)
-            .accessibilityIdentifier("menu.setup.test.action")
+            .font(.caption)
+
+            if let recoveryDetail = setupCheckRecoveryDetail {
+                Text(recoveryDetail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("menu.setup.test.recovery")
+            }
         }
-        .font(.caption)
     }
 
     private func permissionRow(
         title: String,
         state: AppState.PermissionState,
         actionTitle: String?,
+        recoveryDetail: String,
         action: (() -> Void)?
     ) -> some View {
-        HStack(spacing: 8) {
-            Label(title, systemImage: permissionIcon(for: state))
-                .foregroundStyle(permissionColor(for: state))
-                .accessibilityIdentifier("menu.setup.\(title).label")
-            Spacer()
-            Text(permissionText(for: state))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .accessibilityIdentifier("menu.setup.\(title).state")
-            if let actionTitle, let action {
-                Button(actionTitle) {
-                    action()
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 8) {
+                Label(title, systemImage: permissionIcon(for: state))
+                    .foregroundStyle(permissionColor(for: state))
+                    .accessibilityIdentifier("menu.setup.\(title).label")
+                Spacer()
+                Text(permissionText(for: state))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("menu.setup.\(title).state")
+                if let actionTitle, let action {
+                    Button(actionTitle) {
+                        action()
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("menu.setup.\(title).action")
                 }
-                .buttonStyle(.borderless)
-                .accessibilityIdentifier("menu.setup.\(title).action")
+            }
+            .font(.caption)
+
+            if permissionNeedsRecovery(state) {
+                Text(recoveryDetail)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("menu.setup.\(title).recovery")
             }
         }
-        .font(.caption)
     }
 
     private var statusHeader: some View {
@@ -562,6 +590,11 @@ struct MenuBarView: View {
         }
     }
 
+    private func permissionNeedsRecovery(_ state: AppState.PermissionState) -> Bool {
+        if case .needsAction = state { return true }
+        return false
+    }
+
     private var setupCheckTitle: String {
         switch appState.setupCheckState {
         case .idle, .running:
@@ -619,6 +652,20 @@ struct MenuBarView: View {
         case .idle, .running:
             .secondary
         }
+    }
+
+    private var setupCheckRecoveryDetail: String? {
+        guard case .failed(let message) = appState.setupCheckState else { return nil }
+        if message.localizedCaseInsensitiveContains("api key") {
+            return "Add a Groq API key, then run the setup test again."
+        }
+        if message.localizedCaseInsensitiveContains("accessibility") {
+            return "Open Accessibility settings, enable GroqTalk, then rerun the test."
+        }
+        if message.localizedCaseInsensitiveContains("microphone") {
+            return "Check Microphone privacy or audio input, then rerun the test."
+        }
+        return "Resolve the setup item above, then rerun the test."
     }
 
     private var hotkeyLabel: String {

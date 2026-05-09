@@ -769,6 +769,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func refreshSetupHealth() {
         if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            if ProcessInfo.processInfo.arguments.contains("--seed-setup-failures") {
+                appState.updateAccessibilityState(isTrusted: false)
+                appState.updateMicrophoneState(isReady: false)
+                appState.apiKeyState = .needsAction("Add Groq API key")
+                appState.failSetupCheck("Enable Accessibility")
+                return
+            }
             appState.updateAccessibilityState(isTrusted: true)
             appState.updateMicrophoneState(isReady: true)
             appState.apiKeyState = .ready
