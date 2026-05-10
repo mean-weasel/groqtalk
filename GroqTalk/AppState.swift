@@ -329,7 +329,7 @@ final class AppState {
         switch transcriptionStage ?? .transcribingAudio {
         case .transcribingAudio:
             return SessionPresentation(
-                title: "Transcribing audio",
+                title: "Transcribing",
                 detail: transcriptionDetail,
                 timerText: nil,
                 systemImage: "waveform.badge.magnifyingglass",
@@ -338,7 +338,7 @@ final class AppState {
             )
         case .cleaningTranscript:
             return SessionPresentation(
-                title: "Cleaning transcript",
+                title: "Cleaning up",
                 detail: "\(transcriptCleanupModel) · \(transcriptProcessingMode.displayName)",
                 timerText: nil,
                 systemImage: "sparkles",
@@ -347,7 +347,7 @@ final class AppState {
             )
         case .pasting:
             return SessionPresentation(
-                title: "Pasting text",
+                title: "Pasting",
                 detail: capturedTargetName.map { "Target: \($0)" } ?? "Inserting into current app",
                 timerText: nil,
                 systemImage: "arrow.down.doc",
@@ -362,7 +362,7 @@ final class AppState {
         case .raw:
             "Groq · \(selectedModel)"
         case .cleanUp, .rewriteClearly:
-            "Groq · Cleanup follows transcription"
+            "Groq · cleanup next"
         }
     }
 

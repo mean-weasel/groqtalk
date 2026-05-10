@@ -128,9 +128,9 @@ final class GroqTalkUITests: XCTestCase {
 
         app.buttons["Simulate Success"].click()
 
-        XCTAssertTrue(app.staticTexts["Transcribing audio"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Cleaning transcript"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Pasting text"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Transcribing"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Cleaning up"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Pasting"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: 6))
         XCTAssertFalse(app.staticTexts["Done"].waitForExistence(timeout: 1))
         XCTAssertTrue(app.staticTexts["Mock async paste transcript"].waitForExistence(timeout: 2))
@@ -142,8 +142,8 @@ final class GroqTalkUITests: XCTestCase {
         app.checkBoxes["Paste where recording started"].click()
         app.buttons["Simulate Success"].click()
 
-        XCTAssertTrue(app.staticTexts["Transcribing audio"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Pasting text"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Transcribing"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Pasting"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: 6))
         XCTAssertTrue(app.staticTexts["Mock async paste transcript"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Pasted into the test target"].waitForExistence(timeout: 2))
@@ -165,7 +165,7 @@ final class GroqTalkUITests: XCTestCase {
         app.checkBoxes["Show floating status"].click()
         app.buttons["Simulate Success"].click()
 
-        XCTAssertTrue(app.staticTexts["Transcribing audio"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Transcribing"].waitForExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Pasted into the current app"].waitForExistence(timeout: 6))
     }
 

@@ -187,7 +187,7 @@ final class AppStateTests: XCTestCase {
             hasLastSuccess: false
         )
 
-        XCTAssertEqual(presentation.title, "Transcribing audio")
+        XCTAssertEqual(presentation.title, "Transcribing")
         XCTAssertEqual(presentation.detail, "Groq · whisper-large-v3-turbo")
         XCTAssertEqual(presentation.tone, .progress)
     }
@@ -205,7 +205,7 @@ final class AppStateTests: XCTestCase {
             hasLastSuccess: false
         )
 
-        XCTAssertEqual(presentation.title, "Cleaning transcript")
+        XCTAssertEqual(presentation.title, "Cleaning up")
         XCTAssertEqual(presentation.detail, "llama-3.3-70b-versatile · Clean up")
         XCTAssertEqual(presentation.systemImage, "sparkles")
         XCTAssertEqual(presentation.tone, .progress)
@@ -223,7 +223,7 @@ final class AppStateTests: XCTestCase {
             hasLastSuccess: false
         )
 
-        XCTAssertEqual(presentation.title, "Pasting text")
+        XCTAssertEqual(presentation.title, "Pasting")
         XCTAssertEqual(presentation.detail, "Target: Notes")
         XCTAssertEqual(presentation.systemImage, "arrow.down.doc")
     }
