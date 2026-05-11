@@ -162,6 +162,16 @@ final class AppState {
         didSet { Self.defaults.set(hotkeyChoice.rawValue, forKey: "hotkeyChoice") }
     }
 
+    var selectedInputDeviceID: UInt32? {
+        didSet {
+            if let id = selectedInputDeviceID {
+                UserDefaults.standard.set(id, forKey: "selectedInputDeviceID")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "selectedInputDeviceID")
+            }
+        }
+    }
+
     var hasApiKey: Bool { KeychainHelper.readApiKey() != nil }
 
     var isSetupReady: Bool {
@@ -242,6 +252,24 @@ final class AppState {
     var formattedRecordingDuration: String {
         let seconds = Int(recordingDuration)
         return String(format: "%d:%02d", seconds / 60, seconds % 60)
+    }
+
+    // MARK: - Recording time warning
+
+    static let maxRecordingDuration: TimeInterval = 600
+    static let warningThreshold: TimeInterval = 540
+
+    var isApproachingTimeLimit: Bool {
+        status == .recording && recordingDuration >= Self.warningThreshold
+    }
+
+    var remainingRecordingTime: TimeInterval {
+        max(0, Self.maxRecordingDuration - recordingDuration)
+    }
+
+    var formattedRemainingTime: String {
+        let remaining = Int(remainingRecordingTime)
+        return "\(remaining / 60):\(String(format: "%02d", remaining % 60))"
     }
 
     func sessionPresentation(
@@ -501,6 +529,8 @@ final class AppState {
         #endif
         recordingMode = HotkeyMonitor.RecordingMode(rawValue: defaults.string(forKey: "recordingMode") ?? "") ?? .hold
         hotkeyChoice = HotkeyMonitor.HotkeyChoice(rawValue: defaults.string(forKey: "hotkeyChoice") ?? "") ?? .rightCommand
+        let savedDevice = UserDefaults.standard.object(forKey: "selectedInputDeviceID") as? UInt32
+        selectedInputDeviceID = savedDevice
     }
 
     func setStatus(_ newStatus: Status) {

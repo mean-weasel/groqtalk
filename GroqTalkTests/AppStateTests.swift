@@ -34,6 +34,7 @@ final class AppStateTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "mockTranscriptionEnabled")
         UserDefaults.standard.removeObject(forKey: "transcriptProcessingMode")
         UserDefaults.standard.removeObject(forKey: "transcriptCleanupModel")
+        UserDefaults.standard.removeObject(forKey: "selectedInputDeviceID")
     }
 
     private func markSetupReady(_ state: AppState) {
@@ -766,6 +767,53 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(state.mockTranscriptionEnabled)
     }
     #endif
+
+    // MARK: - Recording time warning
+
+    @MainActor
+    func testIsApproachingTimeLimitFalseWhenNotRecording() {
+        let state = AppState()
+        state.recordingDuration = 550
+        XCTAssertFalse(state.isApproachingTimeLimit)
+    }
+
+    @MainActor
+    func testIsApproachingTimeLimitTrueWhenRecordingPastThreshold() {
+        let state = AppState()
+        state.setStatus(.recording)
+        state.recordingDuration = 541
+        XCTAssertTrue(state.isApproachingTimeLimit)
+    }
+
+    @MainActor
+    func testRemainingRecordingTimeCalculation() {
+        let state = AppState()
+        state.recordingDuration = 500
+        XCTAssertEqual(state.remainingRecordingTime, 100, accuracy: 0.01)
+    }
+
+    @MainActor
+    func testRemainingTimeNeverNegative() {
+        let state = AppState()
+        state.recordingDuration = 700
+        XCTAssertEqual(state.remainingRecordingTime, 0)
+    }
+
+    @MainActor
+    func testFormattedRemainingTime() {
+        let state = AppState()
+        state.recordingDuration = 540
+        XCTAssertEqual(state.formattedRemainingTime, "1:00")
+    }
+
+    @MainActor
+    func testSelectedInputDeviceIDPersists() {
+        let state = AppState()
+        state.selectedInputDeviceID = 42
+        XCTAssertEqual(UserDefaults.standard.object(forKey: "selectedInputDeviceID") as? UInt32, 42)
+        state.selectedInputDeviceID = nil
+        XCTAssertNil(UserDefaults.standard.object(forKey: "selectedInputDeviceID"))
+    }
 
     // MARK: - Transcript processing
 

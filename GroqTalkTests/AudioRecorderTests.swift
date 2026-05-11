@@ -275,4 +275,19 @@ final class AudioRecorderTests: XCTestCase {
         let error = AudioRecorder.RecordingError.audioFormatUnavailable
         XCTAssertFalse(error.localizedDescription.isEmpty)
     }
+
+    // MARK: - Audio device enumeration
+
+    func testAvailableInputDevicesReturnsArray() {
+        let devices = AudioRecorder.availableInputDevices()
+        XCTAssertTrue(devices.allSatisfy { $0.isInput })
+    }
+
+    func testAudioDeviceEquality() {
+        let a = AudioRecorder.AudioDevice(id: 1, name: "Mic", isInput: true)
+        let b = AudioRecorder.AudioDevice(id: 1, name: "Mic", isInput: true)
+        let c = AudioRecorder.AudioDevice(id: 2, name: "Other", isInput: true)
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
+    }
 }

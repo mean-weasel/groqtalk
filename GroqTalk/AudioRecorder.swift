@@ -1,4 +1,5 @@
 import AVFAudio
+import CoreAudio
 import Foundation
 
 /// Audio format for recording output. Used across AudioRecorder, TranscriptionService,
@@ -277,6 +278,86 @@ final class AudioRecorder: @unchecked Sendable {
     private func tempURL(extension ext: String) -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("groqtalk-\(UUID().uuidString).\(ext)")
+    }
+
+    // MARK: - Audio device enumeration
+
+    struct AudioDevice: Identifiable, Equatable, Hashable {
+        let id: AudioDeviceID
+        let name: String
+        let isInput: Bool
+    }
+
+    static func availableInputDevices() -> [AudioDevice] {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDevices,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var dataSize: UInt32 = 0
+        var status = AudioObjectGetPropertyDataSize(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0, nil,
+            &dataSize
+        )
+        guard status == noErr, dataSize > 0 else { return [] }
+
+        let deviceCount = Int(dataSize) / MemoryLayout<AudioDeviceID>.size
+        var deviceIDs = [AudioDeviceID](repeating: 0, count: deviceCount)
+        status = AudioObjectGetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0, nil,
+            &dataSize,
+            &deviceIDs
+        )
+        guard status == noErr else { return [] }
+
+        var inputDevices: [AudioDevice] = []
+
+        for deviceID in deviceIDs {
+            // Check for input channels via stream configuration on the input scope
+            var inputScopeAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyStreamConfiguration,
+                mScope: kAudioDevicePropertyScopeInput,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var configSize: UInt32 = 0
+            let sizeStatus = AudioObjectGetPropertyDataSize(deviceID, &inputScopeAddress, 0, nil, &configSize)
+            guard sizeStatus == noErr, configSize > 0 else { continue }
+
+            let bufferListPointer = UnsafeMutableRawPointer.allocate(byteCount: Int(configSize), alignment: MemoryLayout<AudioBufferList>.alignment)
+            defer { bufferListPointer.deallocate() }
+
+            var configSizeMutable = configSize
+            let dataStatus = AudioObjectGetPropertyData(deviceID, &inputScopeAddress, 0, nil, &configSizeMutable, bufferListPointer)
+            guard dataStatus == noErr else { continue }
+
+            let bufferList = bufferListPointer.load(as: AudioBufferList.self)
+            let totalChannels = withUnsafePointer(to: bufferList.mBuffers) { buffersStart in
+                (0..<Int(bufferList.mNumberBuffers)).reduce(0) { total, i in
+                    total + Int(buffersStart[i].mNumberChannels)
+                }
+            }
+            guard totalChannels > 0 else { continue }
+
+            // Get device name
+            var nameAddress = AudioObjectPropertyAddress(
+                mSelector: kAudioDevicePropertyDeviceNameCFString,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            var nameRef: CFString = "" as CFString
+            var nameSize = UInt32(MemoryLayout<CFString>.size)
+            let nameStatus = AudioObjectGetPropertyData(deviceID, &nameAddress, 0, nil, &nameSize, &nameRef)
+            let deviceName = nameStatus == noErr ? (nameRef as String) : "Unknown Device"
+
+            inputDevices.append(AudioDevice(id: deviceID, name: deviceName, isInput: true))
+        }
+
+        return inputDevices
     }
 
     enum RecordingError: Error {
