@@ -75,8 +75,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var pendingTarget: PasteTarget?
     private var pasteQueue: PasteQueue!
+    private var retryingRecordID: UUID?
 
     private var recordingController: RecordingController!
+    private var transcriptionController: TranscriptionController!
     private var transcribingTimer: Timer?
     private var floatingStatusPanel: NSPanel?
     private var floatingStatusSyncTimer: Timer?
@@ -148,6 +150,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticLog.write("applicationDidFinishLaunching")
         recordingController = RecordingController(audioRecorder: audioRecorder, appState: appState)
         recordingController.delegate = self
+        transcriptionController = TranscriptionController(transcriptionService: transcriptionService, appState: appState)
+        transcriptionController.delegate = self
         pasteQueue = PasteQueue { [weak self] text, target, keepOnClipboard in
             guard let self else { return .clipboardFallback }
             if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
@@ -616,174 +620,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         recordingController.startRecording()
     }
 
-    // MARK: - Transcription flow (invoked from RecordingControllerDelegate)
-
-    private func runTranscriptionFlow(audioURL: URL, format: AudioFormat) {
-        DiagnosticLog.write("runTranscriptionFlow: url=\(audioURL.lastPathComponent) format=\(format.rawValue)")
-        Task { @MainActor in
-            soundPlayer.playStopSound()
-            appState.transcriptionStage = .transcribingAudio
-            appState.setStatus(.transcribing)
-            startTranscribingAnimation()
-
-            let useMockTranscription: Bool
-            #if DEBUG
-            useMockTranscription = appState.mockTranscriptionEnabled
-            #else
-            useMockTranscription = false
-            #endif
-            DiagnosticLog.write("transcription mode: mock=\(useMockTranscription)")
-
-            if useMockTranscription {
-                appState.feedbackMessage = "Mock transcription..."
-            }
-
-            let apiKey: String?
-            if useMockTranscription {
-                apiKey = nil
-            } else {
-                guard let storedApiKey = KeychainHelper.readApiKey() else {
-                    stopTranscribingAnimation()
-                    appState.refreshApiKeyState()
-                    try? FileManager.default.removeItem(at: audioURL)
-                    pendingTarget = nil
-                    history.addFailure(error: "No API key", audioFileURL: nil)
-                    appState.showError("No API key -- set one via the menu")
-                    return
-                }
-                apiKey = storedApiKey
-            }
-
-            do {
-                let text: String
-                var cleanupFailed = false
-                if useMockTranscription {
-                    try await Task.sleep(for: .seconds(2))
-                    text = "Mock transcription at \(Date().formatted(date: .omitted, time: .standard))"
-                } else if let apiKey {
-                    appState.transcriptionStage = .transcribingAudio
-                    let rawText = try await transcriptionService.transcribe(
-                        audioFileURL: audioURL,
-                        apiKey: apiKey,
-                        model: appState.selectedModel,
-                        format: format,
-                        language: appState.selectedLanguage
-                    )
-                    let processed = await processTranscriptOrRaw(
-                        rawText: rawText,
-                        apiKey: apiKey,
-                        context: "transcription"
-                    )
-                    text = processed.text
-                    cleanupFailed = processed.cleanupFailed
-                } else {
-                    throw TranscriptionService.TranscriptionError.invalidResponse
-                }
-                stopTranscribingAnimation()
-                appState.feedbackMessage = "Transcription ready"
-                history.addSuccess(text: text)
-
-                let asyncOn = appState.asyncPasteEnabled
-                let target = pendingTarget
-                pendingTarget = nil
-                DiagnosticLog.write("paste decision: asyncOn=\(asyncOn) target=\(String(describing: target))")
-                appState.transcriptionStage = .pasting
-
-                if asyncOn, let target {
-                    DiagnosticLog.write("ASYNC PATH: pasting into \(target.appName) pid=\(target.pid)")
-                    if let delivery = await pasteQueue.enqueue(
-                        text: text, target: target,
-                        keepOnClipboard: appState.keepOnClipboard
-                    ) {
-                        recordPaste(delivery)
-                    }
-                } else {
-                    DiagnosticLog.write("SYNC PATH: pasting into current app")
-                    let delivery = await textInserter.insert(
-                        text: text,
-                        keepOnClipboard: appState.keepOnClipboard
-                    )
-                    recordPaste(delivery)
-                }
-                if cleanupFailed {
-                    appState.feedbackMessage = "Cleanup failed; raw transcript used"
-                }
-                if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
-                    NotificationManager.shared.postTranscriptionComplete(preview: text)
-                }
-                appState.setStatus(.idle)
-                try? FileManager.default.removeItem(at: audioURL)
-            } catch {
-                stopTranscribingAnimation()
-                pendingTarget = nil
-                let errorMsg = errorMessage(from: error)
-                history.addFailure(error: errorMsg, audioFileURL: audioURL)
-                appState.showError(errorMsg)
-                if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
-                    NotificationManager.shared.postTranscriptionFailed(errorMessage: errorMsg)
-                }
-                // Do NOT delete audio file -- preserved for retry
-            }
-        }
-    }
-
-    private func processTranscriptOrRaw(
-        rawText: String,
-        apiKey: String,
-        context: String
-    ) async -> (text: String, cleanupFailed: Bool) {
-        guard appState.transcriptProcessingMode != .raw else {
-            return (rawText, false)
-        }
-
-        appState.transcriptionStage = .cleaningTranscript
-        do {
-            let text = try await transcriptionService.processTranscript(
-                rawText,
-                apiKey: apiKey,
-                mode: appState.transcriptProcessingMode,
-                model: appState.transcriptCleanupModel
-            )
-            return (text, false)
-        } catch {
-            DiagnosticLog.write("\(context): cleanup failed mappedMessage=\(errorMessage(from: error))")
-            return (rawText, true)
-        }
-    }
-
-    private func errorMessage(from error: Error) -> String {
-        switch error {
-        case TranscriptionService.TranscriptionError.invalidApiKey:
-            "Invalid API key"
-        case TranscriptionService.TranscriptionError.fileTooLarge:
-            "Recording too long"
-        case AudioRecorder.RecordingError.recordingTooLong:
-            "Recording too long"
-        case AudioRecorder.RecordingError.audioFormatUnavailable:
-            "Audio format unavailable -- please restart the app"
-        case TranscriptionService.TranscriptionError.rateLimited:
-            "Groq rate limit reached"
-        case TranscriptionService.TranscriptionError.quotaExceeded:
-            "Groq quota exceeded"
-        case TranscriptionService.TranscriptionError.modelUnavailable(let model):
-            "Model unavailable: \(model)"
-        case TranscriptionService.TranscriptionError.badRequest:
-            "Groq rejected the request"
-        case TranscriptionService.TranscriptionError.serverError:
-            "Groq is temporarily unavailable"
-        case TranscriptionService.TranscriptionError.apiError(let code, _):
-            "API error (\(code))"
-        case let urlError as URLError where urlError.code == .notConnectedToInternet:
-            "No internet connection"
-        case let urlError as URLError where urlError.code == .timedOut:
-            "Request timed out"
-        case let urlError as URLError where urlError.code == .cannotConnectToHost
-            || urlError.code == .cannotFindHost:
-            "Cannot reach server"
-        default:
-            "Transcription failed: \(error.localizedDescription)"
-        }
-    }
+    // MARK: - Transcription flow (now delegated to TranscriptionController)
 
     private func startHotkeyMonitorWithRetry() {
         appState.refreshApiKeyState()
@@ -913,7 +750,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 appState.failSetupCheck("Invalid Groq API key")
                 return
             } catch {
-                let message = errorMessage(from: error)
+                let message = transcriptionController.errorMessage(from: error)
                 appState.failSetupCheck(message)
                 return
             }
@@ -987,8 +824,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             appState.showError("Recording file was deleted -- cannot retry")
             return
         }
-        // Infer format from the file extension to match the original recording
-        let format = AudioFormat(rawValue: audioURL.pathExtension) ?? appState.selectedAudioFormat
 
         appState.clearError()
         appState.transcriptionStage = .transcribingAudio
@@ -996,48 +831,136 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appState.feedbackMessage = "Retrying transcription..."
         startTranscribingAnimation()
 
-        Task {
-            guard let apiKey = KeychainHelper.readApiKey() else {
-                stopTranscribingAnimation()
-                appState.showError("No API key -- set one via the menu")
-                return
-            }
+        // Tag the record ID so TranscriptionControllerDelegate callbacks know this is a retry
+        retryingRecordID = record.id
+        Task { @MainActor in
+            await transcriptionController.retryTranscription(record: record)
+        }
+    }
+}
 
-            do {
-                let rawText = try await transcriptionService.transcribe(
-                    audioFileURL: audioURL,
-                    apiKey: apiKey,
-                    model: appState.selectedModel,
-                    format: format,
-                    language: appState.selectedLanguage
-                )
-                let processed = await processTranscriptOrRaw(
-                    rawText: rawText,
-                    apiKey: apiKey,
-                    context: "retry"
-                )
-                let text = processed.text
-                stopTranscribingAnimation()
-                history.resolveRetry(id: record.id, text: text)
-                appState.transcriptionStage = .pasting
+// MARK: - TranscriptionControllerDelegate
+
+extension AppDelegate: TranscriptionControllerDelegate {
+    func transcriptionController(
+        _ controller: TranscriptionController,
+        didStartTranscribing audioURL: URL
+    ) {
+        DiagnosticLog.write("AppDelegate: transcriptionController didStartTranscribing=\(audioURL.lastPathComponent)")
+        // Only set transcribing state if we're not already in it (retry path sets it earlier)
+        if appState.status != .transcribing {
+            soundPlayer.playStopSound()
+            appState.transcriptionStage = .transcribingAudio
+            appState.setStatus(.transcribing)
+            startTranscribingAnimation()
+        }
+
+        let useMockTranscription: Bool
+        #if DEBUG
+        useMockTranscription = appState.mockTranscriptionEnabled
+        #else
+        useMockTranscription = false
+        #endif
+        if useMockTranscription {
+            appState.feedbackMessage = "Mock transcription..."
+        }
+    }
+
+    func transcriptionController(
+        _ controller: TranscriptionController,
+        didTranscribe text: String,
+        audioURL: URL,
+        cleanupFailed: Bool
+    ) {
+        DiagnosticLog.write("AppDelegate: transcriptionController didTranscribe textLength=\(text.count) cleanupFailed=\(cleanupFailed)")
+        stopTranscribingAnimation()
+        appState.feedbackMessage = "Transcription ready"
+
+        if let retryID = retryingRecordID {
+            // Retry path: resolve the existing history record
+            history.resolveRetry(id: retryID, text: text)
+            retryingRecordID = nil
+            appState.transcriptionStage = .pasting
+            Task {
                 let delivery = await textInserter.insert(text: text, keepOnClipboard: appState.keepOnClipboard)
                 recordPaste(delivery)
-                if processed.cleanupFailed {
+                if cleanupFailed {
                     appState.feedbackMessage = "Cleanup failed; raw transcript used"
                 }
                 if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
                     NotificationManager.shared.postTranscriptionComplete(preview: text)
                 }
                 appState.setStatus(.idle)
-            } catch {
-                stopTranscribingAnimation()
-                let errorMsg = errorMessage(from: error)
-                history.resolveRetryFailure(id: record.id, error: errorMsg)
-                appState.showError(errorMsg)
-                if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
-                    NotificationManager.shared.postTranscriptionFailed(errorMessage: errorMsg)
-                }
             }
+        } else {
+            // Normal flow: add new success record, handle paste routing
+            history.addSuccess(text: text)
+
+            let asyncOn = appState.asyncPasteEnabled
+            let target = pendingTarget
+            pendingTarget = nil
+            DiagnosticLog.write("paste decision: asyncOn=\(asyncOn) target=\(String(describing: target))")
+            appState.transcriptionStage = .pasting
+
+            Task {
+                if asyncOn, let target {
+                    DiagnosticLog.write("ASYNC PATH: pasting into \(target.appName) pid=\(target.pid)")
+                    if let delivery = await pasteQueue.enqueue(
+                        text: text, target: target,
+                        keepOnClipboard: appState.keepOnClipboard
+                    ) {
+                        recordPaste(delivery)
+                    }
+                } else {
+                    DiagnosticLog.write("SYNC PATH: pasting into current app")
+                    let delivery = await textInserter.insert(
+                        text: text,
+                        keepOnClipboard: appState.keepOnClipboard
+                    )
+                    recordPaste(delivery)
+                }
+                if cleanupFailed {
+                    appState.feedbackMessage = "Cleanup failed; raw transcript used"
+                }
+                if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
+                    NotificationManager.shared.postTranscriptionComplete(preview: text)
+                }
+                appState.setStatus(.idle)
+                try? FileManager.default.removeItem(at: audioURL)
+            }
+        }
+    }
+
+    func transcriptionController(
+        _ controller: TranscriptionController,
+        didFail error: Error,
+        errorMessage: String,
+        audioURL: URL,
+        format: AudioFormat
+    ) {
+        DiagnosticLog.write("AppDelegate: transcriptionController didFail errorMessage=\(errorMessage)")
+        stopTranscribingAnimation()
+
+        if let retryID = retryingRecordID {
+            // Retry path: update the existing history record
+            history.resolveRetryFailure(id: retryID, error: errorMessage)
+            retryingRecordID = nil
+        } else if error is NoApiKeyError {
+            // No API key: clear pending state, don't preserve audio
+            pendingTarget = nil
+            appState.refreshApiKeyState()
+            try? FileManager.default.removeItem(at: audioURL)
+            history.addFailure(error: "No API key", audioFileURL: nil)
+        } else {
+            // Normal failure: preserve audio for retry
+            pendingTarget = nil
+            history.addFailure(error: errorMessage, audioFileURL: audioURL)
+            // Do NOT delete audio file -- preserved for retry
+        }
+
+        appState.showError(errorMessage)
+        if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
+            NotificationManager.shared.postTranscriptionFailed(errorMessage: errorMessage)
         }
     }
 }
@@ -1057,7 +980,9 @@ extension AppDelegate: RecordingControllerDelegate {
         format: AudioFormat
     ) {
         DiagnosticLog.write("AppDelegate: recordingController didStopWithURL=\(audioURL.lastPathComponent)")
-        runTranscriptionFlow(audioURL: audioURL, format: format)
+        Task { @MainActor in
+            await transcriptionController.transcribe(audioURL: audioURL, format: format)
+        }
     }
 
     func recordingControllerDidStopWithNoAudio(_ controller: RecordingController) {
