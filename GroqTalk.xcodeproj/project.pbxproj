@@ -3,42 +3,47 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		424BE427BAD34B58B967465F /* RecordingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D0E07E8222645C885A46A84 /* RecordingController.swift */; };
-		5FA077E22E0D41F199E8EA8E /* RecordingControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0558E95E3F740C1B081E988 /* RecordingControllerTests.swift */; };
 		0077C5AE095BD3D6ED05268A /* BackgroundPasteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8438CCC3D27E03B7AE3815F7 /* BackgroundPasteTests.swift */; };
+		0B492F5DE8DE7B78E4146A3B /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B424B1B2ED24EAE73F4BE163 /* OnboardingView.swift */; };
 		0F314CEFCCECD10D8D73BD59 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 583AB3E22194CF0BE215E9C6 /* AudioRecorder.swift */; };
 		121D10BF8497F29D1F847353 /* LanguageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2945E0F6027C3F4835BBE8C1 /* LanguageTests.swift */; };
 		2B38B3440F7EDF7EE3E32329 /* TextInserter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F61B277DF7657903E9ED14B1 /* TextInserter.swift */; };
+		2CABAEB7CE09E3DF49A65BEE /* TextInserterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEFB984E4D92EE302684103A /* TextInserterTests.swift */; };
 		2F82960B56006370D0F90FCC /* TranscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D5510A5B46F677D2AE854D /* TranscriptionService.swift */; };
 		333A23FF2E429FDD686944CF /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3B90F97CD7A617F9DD6B088 /* SettingsView.swift */; };
 		33D87C648D0A87C02B31A449 /* IntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70A2013D32CCECA48976685C /* IntegrationTests.swift */; };
+		340759604FA8369AAC611223 /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DBABAE3A9E92427066BFD1 /* NotificationManagerTests.swift */; };
+		40A2CF8DC033B1B74827D7D7 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A61E71A6E8082B95B8BFFBB /* LaunchAtLoginManager.swift */; };
 		44A052BE79DB88DAD67DC34E /* HotkeyMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F31F3710AEDC0890D9CA1F4 /* HotkeyMonitor.swift */; };
 		4D4F7C37344F8C343E5D09A1 /* ApiKeySetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13CB29E436E5E3465167230D /* ApiKeySetupView.swift */; };
 		4EC94F8FD46EA59C1D29DBAA /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C04ACF5F04D33BF75D666AD /* MenuBarView.swift */; };
 		59670AD3B35A6E862511D3B5 /* HistoryPopoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B60032CCB98D3746C131217 /* HistoryPopoverTests.swift */; };
 		667DAE95FBD5D705DAB0040E /* DiagnosticLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE6B85DF059FB4B645DFB8C /* DiagnosticLog.swift */; };
 		68CA2C950FA6990F920B6F0E /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0224008DA333B2B45AA9B3 /* SoundPlayer.swift */; };
+		6C6794F893BED2FBEA21814B /* RecordingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F0B55225C42E812C09E4DB /* RecordingFlowTests.swift */; };
 		733A1997297A35618D3AEA16 /* PasteQueueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 141E73C78BEF8A8E08F3B838 /* PasteQueueTests.swift */; };
 		7D8E0B807298CAECDFCE311E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1F5AA67E138E2CA7C5849E3 /* Assets.xcassets */; };
 		93AD185BFCF6ADFE1DF0693E /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86D07A7A6D47B83D5319CB92 /* KeychainHelper.swift */; };
 		978DAF75F9B4A08618AE57FB /* SkyLightBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B5926CD9068E3CC23EF49D1 /* SkyLightBridge.swift */; };
 		9C5F3BE1ADFE9F40B0DD40A5 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C48CEFD0EA9409C15CBFB0 /* AppState.swift */; };
-		9F18B70CA87B4E47A1F98D43 /* FloatingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50B7E31E9D654C18B57372ED /* FloatingStatusView.swift */; };
 		A02E3739EF61ABCCE34BF29F /* AppStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF970AE548B49F2AD02AE742 /* AppStateTests.swift */; };
 		A415CE9E58748D266755EEFC /* AudioRecorderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6B0DA7F2F73D239BFCA2B39 /* AudioRecorderTests.swift */; };
 		AA57A1978B56733EAF2BC491 /* PasteQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A44A246EE288E9AD76808556 /* PasteQueue.swift */; };
+		B3BC2234AE2D40D243DA06C5 /* RecordingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7015BB4F30AB39CCD14AD34B /* RecordingController.swift */; };
 		BE2469ADB79D939E1A9EE2C8 /* SkyLightBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF13662526914E0320E811C7 /* SkyLightBridgeTests.swift */; };
 		C0482BD31D4BE0179B102CAC /* HistoryPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA6DFA9E20871913651ECEB /* HistoryPopoverView.swift */; };
+		C9B86E4CF5B41FC449096567 /* FloatingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 415BD3E9C48EE3DFC91BEBAC /* FloatingStatusView.swift */; };
 		CF189712B8A96D3DEEECCF2A /* PasteDelivery.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5D41203FA2FD2A66991651C /* PasteDelivery.swift */; };
 		D159A8B80B1638CBDCE1C5D6 /* TranscriptionServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75751BABD8DCE7F43A5AC08F /* TranscriptionServiceTests.swift */; };
 		D261B42FDD09C2B0E0577E53 /* GroqTalkUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF5C3DB12AFBA88ECBA175F /* GroqTalkUITests.swift */; };
-		7D299B2966D34496A26B3212 /* TextInserterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 085D9F0A10C442AE80C8789D /* TextInserterTests.swift */; };
 		D5CEEFD92523C69C8E9AE87D /* TranscriptionHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E38DF89D2274A959CCAD06AD /* TranscriptionHistoryTests.swift */; };
+		D952EC1FB3552FF6B82907ED /* RecordingControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C93EC0BBDAD5377C0501062D /* RecordingControllerTests.swift */; };
 		E353F7E3CFB6FC1E8DE25C7E /* HotkeyMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCEF01B35A4285F2AE32E990 /* HotkeyMonitorTests.swift */; };
+		E684116050150916A832760C /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8634D2C0D98884FEBC13540B /* NotificationManager.swift */; };
 		F171EFD9BB5E02DA075979FB /* TranscriptionHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C23DDB33DDC6E657B8221CA /* TranscriptionHistory.swift */; };
 		F29F5E45235D5E76726E3154 /* PasteTargetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00ED9617CF428F8BF2444B9 /* PasteTargetTests.swift */; };
 		F34BB165ADDE82F7DA185B8D /* GroqTalkApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AB21B35C638DC3AB2379B3 /* GroqTalkApp.swift */; };
@@ -46,11 +51,7 @@
 		F53B17A535796774324C1087 /* TranscriptProcessingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C56C652164796A12E37BC7F /* TranscriptProcessingMode.swift */; };
 		F7B066205963C05411DD0875 /* BackgroundPaste.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22AD03CCE8B0FD7392A3D02 /* BackgroundPaste.swift */; };
 		FA64A4E97D3B14107794AA3E /* PasteTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56ED3D31CEFA11C4EBCD441 /* PasteTarget.swift */; };
-		0720A782854D45759CA83459 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 193FED79213E433F99BBA2F9 /* LaunchAtLoginManager.swift */; };
-		519973C009304466B654BDF9 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29554FDB9C9E446D9491D8F7 /* NotificationManager.swift */; };
-		DE5DBF478D564E4298F9FD07 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D24D1F9228394E7BB081FE4B /* OnboardingView.swift */; };
-		5EA650FD65F348C2A00916B7 /* LaunchAtLoginManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F04DF5B97BE940799840535B /* LaunchAtLoginManagerTests.swift */; };
-		6B350E60F1E747F4962DCE36 /* NotificationManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C550D03571434204B9378B5F /* NotificationManagerTests.swift */; };
+		FDF502A5CA608D10D2E0080F /* LaunchAtLoginManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C8A7CE2C08EA04B285F130 /* LaunchAtLoginManagerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,28 +73,31 @@
 
 /* Begin PBXFileReference section */
 		02AB21B35C638DC3AB2379B3 /* GroqTalkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroqTalkApp.swift; sourceTree = "<group>"; };
-		4D0E07E8222645C885A46A84 /* RecordingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingController.swift; sourceTree = "<group>"; };
-		D0558E95E3F740C1B081E988 /* RecordingControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingControllerTests.swift; sourceTree = "<group>"; };
 		03FF48A96DB2446119EF3C9A /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
 		0AF5C3DB12AFBA88ECBA175F /* GroqTalkUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroqTalkUITests.swift; sourceTree = "<group>"; };
 		0B60032CCB98D3746C131217 /* HistoryPopoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryPopoverTests.swift; sourceTree = "<group>"; };
 		0BE6B85DF059FB4B645DFB8C /* DiagnosticLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticLog.swift; sourceTree = "<group>"; };
 		13CB29E436E5E3465167230D /* ApiKeySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiKeySetupView.swift; sourceTree = "<group>"; };
 		141E73C78BEF8A8E08F3B838 /* PasteQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteQueueTests.swift; sourceTree = "<group>"; };
+		15C8A7CE2C08EA04B285F130 /* LaunchAtLoginManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManagerTests.swift; sourceTree = "<group>"; };
+		24F0B55225C42E812C09E4DB /* RecordingFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingFlowTests.swift; sourceTree = "<group>"; };
 		2945E0F6027C3F4835BBE8C1 /* LanguageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanguageTests.swift; sourceTree = "<group>"; };
 		2B5926CD9068E3CC23EF49D1 /* SkyLightBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyLightBridge.swift; sourceTree = "<group>"; };
 		2C23DDB33DDC6E657B8221CA /* TranscriptionHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionHistory.swift; sourceTree = "<group>"; };
 		2C56C652164796A12E37BC7F /* TranscriptProcessingMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptProcessingMode.swift; sourceTree = "<group>"; };
+		415BD3E9C48EE3DFC91BEBAC /* FloatingStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingStatusView.swift; sourceTree = "<group>"; };
 		43A2E33CA96A9F02E59C910A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		47F67C46D628784D812AC1C1 /* GroqTalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = GroqTalk.entitlements; sourceTree = "<group>"; };
-		50B7E31E9D654C18B57372ED /* FloatingStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingStatusView.swift; sourceTree = "<group>"; };
 		583AB3E22194CF0BE215E9C6 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		5A61E71A6E8082B95B8BFFBB /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
 		5DA6DFA9E20871913651ECEB /* HistoryPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryPopoverView.swift; sourceTree = "<group>"; };
+		7015BB4F30AB39CCD14AD34B /* RecordingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingController.swift; sourceTree = "<group>"; };
 		70A2013D32CCECA48976685C /* IntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntegrationTests.swift; sourceTree = "<group>"; };
 		72069E1D0553D8A1FE1540F1 /* GroqTalkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroqTalkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		75751BABD8DCE7F43A5AC08F /* TranscriptionServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionServiceTests.swift; sourceTree = "<group>"; };
 		78D5510A5B46F677D2AE854D /* TranscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionService.swift; sourceTree = "<group>"; };
 		8438CCC3D27E03B7AE3815F7 /* BackgroundPasteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundPasteTests.swift; sourceTree = "<group>"; };
+		8634D2C0D98884FEBC13540B /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
 		86D07A7A6D47B83D5319CB92 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		8C04ACF5F04D33BF75D666AD /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		9F31F3710AEDC0890D9CA1F4 /* HotkeyMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitor.swift; sourceTree = "<group>"; };
@@ -101,25 +105,23 @@
 		AE0224008DA333B2B45AA9B3 /* SoundPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundPlayer.swift; sourceTree = "<group>"; };
 		B1F5AA67E138E2CA7C5849E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B3B90F97CD7A617F9DD6B088 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		B424B1B2ED24EAE73F4BE163 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		B56ED3D31CEFA11C4EBCD441 /* PasteTarget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteTarget.swift; sourceTree = "<group>"; };
 		B6B0DA7F2F73D239BFCA2B39 /* AudioRecorderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorderTests.swift; sourceTree = "<group>"; };
 		BCEF01B35A4285F2AE32E990 /* HotkeyMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyMonitorTests.swift; sourceTree = "<group>"; };
 		BF13662526914E0320E811C7 /* SkyLightBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkyLightBridgeTests.swift; sourceTree = "<group>"; };
 		C5D41203FA2FD2A66991651C /* PasteDelivery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteDelivery.swift; sourceTree = "<group>"; };
 		C64A6F82CCC4912E445F25A4 /* GroqTalk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GroqTalk.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C93EC0BBDAD5377C0501062D /* RecordingControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingControllerTests.swift; sourceTree = "<group>"; };
+		DEFB984E4D92EE302684103A /* TextInserterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserterTests.swift; sourceTree = "<group>"; };
 		DF970AE548B49F2AD02AE742 /* AppStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTests.swift; sourceTree = "<group>"; };
 		E00ED9617CF428F8BF2444B9 /* PasteTargetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteTargetTests.swift; sourceTree = "<group>"; };
-		085D9F0A10C442AE80C8789D /* TextInserterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserterTests.swift; sourceTree = "<group>"; };
 		E38DF89D2274A959CCAD06AD /* TranscriptionHistoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptionHistoryTests.swift; sourceTree = "<group>"; };
+		E4DBABAE3A9E92427066BFD1 /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerTests.swift; sourceTree = "<group>"; };
 		F22AD03CCE8B0FD7392A3D02 /* BackgroundPaste.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundPaste.swift; sourceTree = "<group>"; };
 		F2C48CEFD0EA9409C15CBFB0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		F61B277DF7657903E9ED14B1 /* TextInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserter.swift; sourceTree = "<group>"; };
 		FFB5F7B6429D574072627762 /* GroqTalkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroqTalkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		193FED79213E433F99BBA2F9 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
-		29554FDB9C9E446D9491D8F7 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
-		D24D1F9228394E7BB081FE4B /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		F04DF5B97BE940799840535B /* LaunchAtLoginManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManagerTests.swift; sourceTree = "<group>"; };
-		C550D03571434204B9378B5F /* NotificationManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManagerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -138,21 +140,22 @@
 			children = (
 				DF970AE548B49F2AD02AE742 /* AppStateTests.swift */,
 				B6B0DA7F2F73D239BFCA2B39 /* AudioRecorderTests.swift */,
-				D0558E95E3F740C1B081E988 /* RecordingControllerTests.swift */,
 				8438CCC3D27E03B7AE3815F7 /* BackgroundPasteTests.swift */,
 				0B60032CCB98D3746C131217 /* HistoryPopoverTests.swift */,
 				BCEF01B35A4285F2AE32E990 /* HotkeyMonitorTests.swift */,
 				70A2013D32CCECA48976685C /* IntegrationTests.swift */,
 				03FF48A96DB2446119EF3C9A /* KeychainHelperTests.swift */,
 				2945E0F6027C3F4835BBE8C1 /* LanguageTests.swift */,
+				15C8A7CE2C08EA04B285F130 /* LaunchAtLoginManagerTests.swift */,
+				E4DBABAE3A9E92427066BFD1 /* NotificationManagerTests.swift */,
 				141E73C78BEF8A8E08F3B838 /* PasteQueueTests.swift */,
 				E00ED9617CF428F8BF2444B9 /* PasteTargetTests.swift */,
+				C93EC0BBDAD5377C0501062D /* RecordingControllerTests.swift */,
+				24F0B55225C42E812C09E4DB /* RecordingFlowTests.swift */,
 				BF13662526914E0320E811C7 /* SkyLightBridgeTests.swift */,
-				085D9F0A10C442AE80C8789D /* TextInserterTests.swift */,
+				DEFB984E4D92EE302684103A /* TextInserterTests.swift */,
 				E38DF89D2274A959CCAD06AD /* TranscriptionHistoryTests.swift */,
 				75751BABD8DCE7F43A5AC08F /* TranscriptionServiceTests.swift */,
-				F04DF5B97BE940799840535B /* LaunchAtLoginManagerTests.swift */,
-				C550D03571434204B9378B5F /* NotificationManagerTests.swift */,
 			);
 			path = GroqTalkTests;
 			sourceTree = "<group>";
@@ -180,25 +183,25 @@
 			children = (
 				13CB29E436E5E3465167230D /* ApiKeySetupView.swift */,
 				F2C48CEFD0EA9409C15CBFB0 /* AppState.swift */,
-				193FED79213E433F99BBA2F9 /* LaunchAtLoginManager.swift */,
-				29554FDB9C9E446D9491D8F7 /* NotificationManager.swift */,
-				D24D1F9228394E7BB081FE4B /* OnboardingView.swift */,
 				B1F5AA67E138E2CA7C5849E3 /* Assets.xcassets */,
 				583AB3E22194CF0BE215E9C6 /* AudioRecorder.swift */,
 				F22AD03CCE8B0FD7392A3D02 /* BackgroundPaste.swift */,
 				0BE6B85DF059FB4B645DFB8C /* DiagnosticLog.swift */,
+				415BD3E9C48EE3DFC91BEBAC /* FloatingStatusView.swift */,
 				47F67C46D628784D812AC1C1 /* GroqTalk.entitlements */,
 				02AB21B35C638DC3AB2379B3 /* GroqTalkApp.swift */,
 				5DA6DFA9E20871913651ECEB /* HistoryPopoverView.swift */,
-				4D0E07E8222645C885A46A84 /* RecordingController.swift */,
 				9F31F3710AEDC0890D9CA1F4 /* HotkeyMonitor.swift */,
 				43A2E33CA96A9F02E59C910A /* Info.plist */,
 				86D07A7A6D47B83D5319CB92 /* KeychainHelper.swift */,
-				50B7E31E9D654C18B57372ED /* FloatingStatusView.swift */,
+				5A61E71A6E8082B95B8BFFBB /* LaunchAtLoginManager.swift */,
 				8C04ACF5F04D33BF75D666AD /* MenuBarView.swift */,
+				8634D2C0D98884FEBC13540B /* NotificationManager.swift */,
+				B424B1B2ED24EAE73F4BE163 /* OnboardingView.swift */,
 				C5D41203FA2FD2A66991651C /* PasteDelivery.swift */,
 				A44A246EE288E9AD76808556 /* PasteQueue.swift */,
 				B56ED3D31CEFA11C4EBCD441 /* PasteTarget.swift */,
+				7015BB4F30AB39CCD14AD34B /* RecordingController.swift */,
 				B3B90F97CD7A617F9DD6B088 /* SettingsView.swift */,
 				2B5926CD9068E3CC23EF49D1 /* SkyLightBridge.swift */,
 				AE0224008DA333B2B45AA9B3 /* SoundPlayer.swift */,
@@ -282,6 +285,7 @@
 				};
 			};
 			buildConfigurationList = 48CE717712EC94139459B1C2 /* Build configuration list for PBXProject "GroqTalk" */;
+			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -290,8 +294,7 @@
 			);
 			mainGroup = 6EDD9BC93A04E16B9667BE68;
 			minimizedProjectReferenceProxies = 1;
-			preferredProjectObjectVersion = 77;
-			productRefGroup = 43C4E72637063E3F7C5EDA81 /* Products */;
+			preferredProjectObjectVersion = 54;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -328,22 +331,22 @@
 			files = (
 				4D4F7C37344F8C343E5D09A1 /* ApiKeySetupView.swift in Sources */,
 				9C5F3BE1ADFE9F40B0DD40A5 /* AppState.swift in Sources */,
-				424BE427BAD34B58B967465F /* RecordingController.swift in Sources */,
-				0720A782854D45759CA83459 /* LaunchAtLoginManager.swift in Sources */,
-				519973C009304466B654BDF9 /* NotificationManager.swift in Sources */,
-				DE5DBF478D564E4298F9FD07 /* OnboardingView.swift in Sources */,
 				0F314CEFCCECD10D8D73BD59 /* AudioRecorder.swift in Sources */,
 				F7B066205963C05411DD0875 /* BackgroundPaste.swift in Sources */,
 				667DAE95FBD5D705DAB0040E /* DiagnosticLog.swift in Sources */,
+				C9B86E4CF5B41FC449096567 /* FloatingStatusView.swift in Sources */,
 				F34BB165ADDE82F7DA185B8D /* GroqTalkApp.swift in Sources */,
 				C0482BD31D4BE0179B102CAC /* HistoryPopoverView.swift in Sources */,
 				44A052BE79DB88DAD67DC34E /* HotkeyMonitor.swift in Sources */,
 				93AD185BFCF6ADFE1DF0693E /* KeychainHelper.swift in Sources */,
-				9F18B70CA87B4E47A1F98D43 /* FloatingStatusView.swift in Sources */,
+				40A2CF8DC033B1B74827D7D7 /* LaunchAtLoginManager.swift in Sources */,
 				4EC94F8FD46EA59C1D29DBAA /* MenuBarView.swift in Sources */,
+				E684116050150916A832760C /* NotificationManager.swift in Sources */,
+				0B492F5DE8DE7B78E4146A3B /* OnboardingView.swift in Sources */,
 				CF189712B8A96D3DEEECCF2A /* PasteDelivery.swift in Sources */,
 				AA57A1978B56733EAF2BC491 /* PasteQueue.swift in Sources */,
 				FA64A4E97D3B14107794AA3E /* PasteTarget.swift in Sources */,
+				B3BC2234AE2D40D243DA06C5 /* RecordingController.swift in Sources */,
 				333A23FF2E429FDD686944CF /* SettingsView.swift in Sources */,
 				978DAF75F9B4A08618AE57FB /* SkyLightBridge.swift in Sources */,
 				68CA2C950FA6990F920B6F0E /* SoundPlayer.swift in Sources */,
@@ -360,21 +363,22 @@
 			files = (
 				A02E3739EF61ABCCE34BF29F /* AppStateTests.swift in Sources */,
 				A415CE9E58748D266755EEFC /* AudioRecorderTests.swift in Sources */,
-				5FA077E22E0D41F199E8EA8E /* RecordingControllerTests.swift in Sources */,
 				0077C5AE095BD3D6ED05268A /* BackgroundPasteTests.swift in Sources */,
 				59670AD3B35A6E862511D3B5 /* HistoryPopoverTests.swift in Sources */,
 				E353F7E3CFB6FC1E8DE25C7E /* HotkeyMonitorTests.swift in Sources */,
 				33D87C648D0A87C02B31A449 /* IntegrationTests.swift in Sources */,
 				F3820A5D8729E73D296EC059 /* KeychainHelperTests.swift in Sources */,
 				121D10BF8497F29D1F847353 /* LanguageTests.swift in Sources */,
+				FDF502A5CA608D10D2E0080F /* LaunchAtLoginManagerTests.swift in Sources */,
+				340759604FA8369AAC611223 /* NotificationManagerTests.swift in Sources */,
 				733A1997297A35618D3AEA16 /* PasteQueueTests.swift in Sources */,
 				F29F5E45235D5E76726E3154 /* PasteTargetTests.swift in Sources */,
+				D952EC1FB3552FF6B82907ED /* RecordingControllerTests.swift in Sources */,
+				6C6794F893BED2FBEA21814B /* RecordingFlowTests.swift in Sources */,
 				BE2469ADB79D939E1A9EE2C8 /* SkyLightBridgeTests.swift in Sources */,
-				7D299B2966D34496A26B3212 /* TextInserterTests.swift in Sources */,
+				2CABAEB7CE09E3DF49A65BEE /* TextInserterTests.swift in Sources */,
 				D5CEEFD92523C69C8E9AE87D /* TranscriptionHistoryTests.swift in Sources */,
 				D159A8B80B1638CBDCE1C5D6 /* TranscriptionServiceTests.swift in Sources */,
-				5EA650FD65F348C2A00916B7 /* LaunchAtLoginManagerTests.swift in Sources */,
-				6B350E60F1E747F4962DCE36 /* NotificationManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
