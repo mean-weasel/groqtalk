@@ -90,24 +90,33 @@ jobs:
 
       - name: Run tests
         id: run-tests
-        timeout-minutes: 10
-        continue-on-error: true
         run: |
+          # Run xcodebuild in background so we can send SIGTERM (graceful) on timeout
+          # instead of relying on step timeout's SIGKILL (which corrupts xcresult)
           xcodebuild test \
             -scheme GroqTalk \
             -configuration Debug \
             -destination 'platform=macOS' \
             -only-testing:GroqTalkTests \
             -enableCodeCoverage YES \
-            -resultBundlePath TestResults.xcresult \
-            | xcpretty --color && exit ${PIPESTATUS[0]}
+            -resultBundlePath TestResults.xcresult &
+          XCODE_PID=$!
 
-      - name: Verify test results
-        run: |
-          # xcodebuild may hang after tests pass (testmanagerd issue).
-          # Check the xcresult bundle for actual failures regardless of step exit code.
+          # Watchdog: SIGTERM after 7 min (graceful), SIGKILL after 8 min (forced)
+          ( sleep 420 && kill -TERM $XCODE_PID 2>/dev/null
+            sleep 60  && kill -9    $XCODE_PID 2>/dev/null ) &
+          WATCHDOG_PID=$!
+
+          # Wait for xcodebuild to exit (naturally or via watchdog)
+          wait $XCODE_PID 2>/dev/null
+          TEST_EXIT=$?
+          kill $WATCHDOG_PID 2>/dev/null || true
+          wait $WATCHDOG_PID 2>/dev/null || true
+
+          # Check xcresult for actual test failures
           if [ -d TestResults.xcresult ]; then
-            SUMMARY=$(xcrun xcresulttool get test-results summary --path TestResults.xcresult --compact 2>/dev/null || echo "")
+            SUMMARY=$(xcrun xcresulttool get test-results summary \
+              --path TestResults.xcresult --compact 2>/dev/null || echo "")
             if echo "$SUMMARY" | grep -q '"result" : "Failed"'; then
               echo "::error::Test failures found in results bundle"
               echo "$SUMMARY" | head -50
@@ -116,12 +125,9 @@ jobs:
             echo "All tests passed per results bundle"
             exit 0
           fi
-          # No bundle — trust the step outcome
-          if [ "${{ steps.run-tests.outcome }}" = "failure" ]; then
-            echo "::error::Tests failed and no results bundle found"
-            exit 1
-          fi
-          echo "No results bundle but step did not report failure"
+
+          # No bundle — use raw exit code
+          exit $TEST_EXIT
 
       - name: Test summary
         if: always()
@@ -146,7 +152,6 @@ jobs:
 
       - name: Generate coverage report
         if: always()
-        continue-on-error: true
         run: |
           if [ -d TestResults.xcresult ]; then
             xcrun xccov view --report --json TestResults.xcresult > coverage.json 2>/dev/null || true
