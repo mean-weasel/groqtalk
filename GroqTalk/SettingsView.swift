@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var isShowingClearHistoryConfirmation = false
     @State private var launchAtLoginManager = LaunchAtLoginManager()
     @State private var notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+    @State private var sparkleUpdater = SparkleUpdater()
 
     var body: some View {
         TabView {
@@ -73,6 +74,18 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: Binding(
+                    get: { sparkleUpdater.automaticallyChecksForUpdates },
+                    set: { sparkleUpdater.automaticallyChecksForUpdates = $0 }
+                ))
+
+                Button("Check for Updates…") {
+                    sparkleUpdater.checkForUpdates()
+                }
+                .disabled(!sparkleUpdater.canCheckForUpdates)
+            }
         }
         .formStyle(.grouped)
     }
