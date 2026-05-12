@@ -2,10 +2,15 @@ import SwiftUI
 
 struct ApiKeySetupView: View {
     var onSaved: (() -> Void)?
+    var validateApiKey: (String) async throws -> Void = { key in
+        try await TranscriptionService().validateApiKey(apiKey: key)
+    }
 
     @State private var apiKey = ""
     @State private var errorMessage: String?
     @State private var saved = false
+    @State private var isValidating = false
+    @State private var canSaveWithoutValidation = false
     @Environment(\.dismissWindow) private var dismissWindow
 
     var body: some View {
@@ -38,17 +43,31 @@ struct ApiKeySetupView: View {
                     .font(.caption)
             }
 
-            HStack {
-                Link("Get API Key", destination: URL(string: "https://console.groq.com/keys")!)
+            if isValidating {
+                ProgressView("Checking key...")
+                    .controlSize(.small)
                     .font(.caption)
+            }
+
+            HStack {
+                if let groqKeysURL = URL(string: "https://console.groq.com/keys") {
+                    Link("Get API Key", destination: groqKeysURL)
+                        .font(.caption)
+                }
 
                 Spacer()
 
-                Button("Save") {
+                if canSaveWithoutValidation {
+                    Button("Save Anyway") {
+                        saveKeyWithoutValidation()
+                    }
+                }
+
+                Button(isValidating ? "Checking..." : "Save & Test") {
                     saveKey()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(apiKey.isEmpty)
+                .disabled(apiKey.isEmpty || isValidating)
             }
         }
         .padding(24)
@@ -61,16 +80,68 @@ struct ApiKeySetupView: View {
     }
 
     private func saveKey() {
+        isValidating = true
+        errorMessage = nil
+        canSaveWithoutValidation = false
+        let key = apiKey
+        Task {
+            do {
+                try await validateApiKey(key)
+                try KeychainHelper.save(apiKey: key)
+                await MainActor.run {
+                    finishSaved()
+                }
+            } catch {
+                await MainActor.run {
+                    isValidating = false
+                    saved = false
+                    errorMessage = validationMessage(from: error)
+                    canSaveWithoutValidation = allowsSaveAnyway(for: error)
+                }
+            }
+        }
+    }
+
+    private func saveKeyWithoutValidation() {
         do {
             try KeychainHelper.save(apiKey: apiKey)
-            onSaved?()
-            saved = true
-            errorMessage = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                dismissWindow(id: "api-key-setup")
-            }
+            finishSaved()
         } catch {
             errorMessage = "Failed to save: \(error.localizedDescription)"
+        }
+    }
+
+    private func finishSaved() {
+        isValidating = false
+        canSaveWithoutValidation = false
+        onSaved?()
+        saved = true
+        errorMessage = nil
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            dismissWindow(id: "api-key-setup")
+        }
+    }
+
+    private func allowsSaveAnyway(for error: Error) -> Bool {
+        error is URLError
+    }
+
+    private func validationMessage(from error: Error) -> String {
+        switch error {
+        case TranscriptionService.TranscriptionError.invalidApiKey:
+            "Invalid Groq API key."
+        case TranscriptionService.TranscriptionError.rateLimited:
+            "Groq rate limit reached. Try again shortly."
+        case TranscriptionService.TranscriptionError.quotaExceeded:
+            "Groq quota exceeded. Check your account limits."
+        case TranscriptionService.TranscriptionError.serverError:
+            "Groq is temporarily unavailable. Try again later."
+        case let urlError as URLError where urlError.code == .notConnectedToInternet:
+            "Could not reach Groq. Check your connection, or save anyway and test later."
+        case let urlError as URLError where urlError.code == .timedOut:
+            "Groq validation timed out. You can save anyway and test later."
+        default:
+            "Could not validate key: \(error.localizedDescription)"
         }
     }
 }

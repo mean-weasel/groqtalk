@@ -17,6 +17,8 @@ struct HistoryPopoverView: View {
     @State private var filter: Filter = .all
     @State private var isShowingClearConfirmation = false
     @State private var pendingDeleteRecord: TranscriptionRecord?
+    @State private var selectedRecord: TranscriptionRecord?
+    @State private var editedText = ""
 
     private var filteredRecords: [TranscriptionRecord] {
         history.records.filter { record in
@@ -75,6 +77,9 @@ struct HistoryPopoverView: View {
         } message: {
             Text("This removes the selected transcript and any retained failed-audio retry file from this Mac.")
         }
+        .sheet(item: $selectedRecord) { record in
+            detailView(for: history.records.first { $0.id == record.id } ?? record)
+        }
     }
 
     private var pendingDeleteConfirmation: Binding<Bool> {
@@ -93,12 +98,20 @@ struct HistoryPopoverView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("History")
                     .font(.headline)
-                Text("\(history.records.count) of \(TranscriptionHistory.maxRecords) stored")
+                Text(history.isPersistenceEnabled ? "\(history.records.count) of \(history.retentionLimit) stored" : "History storage off")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Spacer()
+
+            Button {
+                copy(history.exportMarkdown())
+            } label: {
+                Label("Export", systemImage: "square.and.arrow.up")
+            }
+            .accessibilityIdentifier("history.exportButton")
+            .disabled(history.records.isEmpty)
 
             Button("Clear", role: .destructive) {
                 isShowingClearConfirmation = true
@@ -183,6 +196,15 @@ struct HistoryPopoverView: View {
                 Text(record.relativeTimestamp)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Button {
+                    selectedRecord = record
+                    editedText = record.text ?? ""
+                } label: {
+                    Label("Details", systemImage: "info.circle")
+                }
+                .accessibilityIdentifier("history.row.detailsButton")
+                .buttonStyle(.borderless)
+                .controlSize(.small)
             }
 
             Spacer()
@@ -192,6 +214,11 @@ struct HistoryPopoverView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .accessibilityIdentifier("history.row")
+        .contentShape(Rectangle())
+        .onTapGesture {
+            selectedRecord = record
+            editedText = record.text ?? ""
+        }
     }
 
     @ViewBuilder
@@ -243,5 +270,94 @@ struct HistoryPopoverView: View {
     private func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func detailView(for record: TranscriptionRecord) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(record.isFailure ? "Failure" : "Transcript")
+                    .font(.headline)
+                Spacer()
+                Text(record.relativeTimestamp)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let text = record.text {
+                TextEditor(text: $editedText)
+                    .font(.body)
+                    .frame(minHeight: 180)
+                    .accessibilityIdentifier("history.detail.editor")
+
+                HStack {
+                    Button {
+                        history.updateSuccess(id: record.id, text: editedText)
+                    } label: {
+                        Label("Save", systemImage: "checkmark")
+                    }
+                    .accessibilityIdentifier("history.detail.saveButton")
+
+                    Button {
+                        copy(editedText)
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                    }
+                    .accessibilityIdentifier("history.detail.copyButton")
+
+                    Button {
+                        onPaste?(editedText)
+                    } label: {
+                        Label("Paste", systemImage: "arrow.turn.down.left")
+                    }
+                    .accessibilityIdentifier("history.detail.pasteButton")
+
+                    Spacer()
+
+                    Button("Revert") {
+                        editedText = text
+                    }
+                }
+                .buttonStyle(.borderless)
+            } else {
+                Text(record.error ?? "")
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("history.detail.error")
+
+                if record.audioFileURL != nil {
+                    Button {
+                        onRetry?(record)
+                    } label: {
+                        Label("Retry", systemImage: "arrow.clockwise")
+                    }
+                    .accessibilityIdentifier("history.detail.retryButton")
+                }
+            }
+
+            Divider()
+
+            HStack {
+                Button(role: .destructive) {
+                    history.delete(id: record.id)
+                    selectedRecord = nil
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+                .accessibilityIdentifier("history.detail.deleteButton")
+
+                Spacer()
+
+                Button("Done") {
+                    selectedRecord = nil
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(18)
+        .frame(width: 520)
+        .frame(minHeight: 320)
+        .onAppear {
+            editedText = record.text ?? ""
+        }
     }
 }

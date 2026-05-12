@@ -201,7 +201,7 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertEqual(url.pathExtension, "wav")
 
         let service = TranscriptionService()
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: url, model: "whisper-large-v3-turbo", format: .wav, boundary: "b"
         )
         let bodyString = String(data: body, encoding: .isoLatin1)!
@@ -215,7 +215,7 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertEqual(url.pathExtension, "m4a")
 
         let service = TranscriptionService()
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: url, model: "whisper-large-v3-turbo", format: .m4a, boundary: "b"
         )
         let bodyString = String(data: body, encoding: .isoLatin1)!
@@ -229,7 +229,7 @@ final class AudioRecorderTests: XCTestCase {
         XCTAssertEqual(url.pathExtension, "flac")
 
         let service = TranscriptionService()
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: url, model: "whisper-large-v3-turbo", format: .flac, boundary: "b"
         )
         let bodyString = String(data: body, encoding: .isoLatin1)!
@@ -259,5 +259,50 @@ final class AudioRecorderTests: XCTestCase {
 
     func testAudioFormatCaseIterable() {
         XCTAssertEqual(AudioFormat.allCases.count, 3)
+    }
+
+    // MARK: - RecordingError tests
+
+    func testRecordingErrorCasesExist() {
+        let formatError = AudioRecorder.RecordingError.audioFormatUnavailable
+        XCTAssertNotNil(formatError)
+
+        let tooLongError = AudioRecorder.RecordingError.recordingTooLong
+        XCTAssertNotNil(tooLongError)
+    }
+
+    func testRecordingErrorDescriptions() {
+        let error = AudioRecorder.RecordingError.audioFormatUnavailable
+        XCTAssertFalse(error.localizedDescription.isEmpty)
+    }
+
+    // MARK: - Device ID parameter
+
+    func testStartRecordingAcceptsNilDeviceID() {
+        // Verify the method signature accepts nil deviceID (system default)
+        let recorder = AudioRecorder()
+        _ = recorder // Method signature accepts optional
+    }
+
+    func testAvailableDeviceIDsAreValidAudioDeviceIDs() {
+        let devices = AudioRecorder.availableInputDevices()
+        for device in devices {
+            XCTAssertTrue(device.id > 0, "Device ID should be positive")
+        }
+    }
+
+    // MARK: - Audio device enumeration
+
+    func testAvailableInputDevicesReturnsArray() {
+        let devices = AudioRecorder.availableInputDevices()
+        XCTAssertTrue(devices.allSatisfy { $0.isInput })
+    }
+
+    func testAudioDeviceEquality() {
+        let a = AudioRecorder.AudioDevice(id: 1, name: "Mic", isInput: true)
+        let b = AudioRecorder.AudioDevice(id: 1, name: "Mic", isInput: true)
+        let c = AudioRecorder.AudioDevice(id: 2, name: "Other", isInput: true)
+        XCTAssertEqual(a, b)
+        XCTAssertNotEqual(a, c)
     }
 }

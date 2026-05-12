@@ -143,6 +143,88 @@ final class TranscriptionHistoryTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
     }
 
+    func testUpdateSuccessEditsTranscript() {
+        history.addSuccess(text: "original")
+        let id = history.records.first!.id
+
+        history.updateSuccess(id: id, text: " edited ")
+
+        XCTAssertEqual(history.records.first?.text, "edited")
+    }
+
+    func testUpdateSuccessIgnoresFailures() {
+        history.addFailure(error: "fail", audioFileURL: nil)
+        let id = history.records.first!.id
+
+        history.updateSuccess(id: id, text: "not allowed")
+
+        XCTAssertEqual(history.records.first?.error, "fail")
+        XCTAssertNil(history.records.first?.text)
+    }
+
+    func testRetentionLimitTrimsRecordsAndAudio() {
+        let audioURL = testDir.appendingPathComponent("old.wav")
+        FileManager.default.createFile(atPath: audioURL.path, contents: Data([0x00]))
+        history.addFailure(error: "old", audioFileURL: audioURL)
+        history.addSuccess(text: "middle")
+        history.addSuccess(text: "new")
+
+        history.retentionLimit = 2
+
+        XCTAssertEqual(history.records.count, 2)
+        XCTAssertEqual(history.records.last?.text, "middle")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
+    }
+
+    func testDisabledPersistenceDoesNotStoreRecords() {
+        let disabled = TranscriptionHistory(
+            storageDirectory: testDir,
+            retentionLimit: 500,
+            isPersistenceEnabled: false
+        )
+
+        disabled.addSuccess(text: "private")
+
+        XCTAssertTrue(disabled.records.isEmpty)
+    }
+
+    func testClearRetainedFailedAudioRemovesAudioButKeepsFailureRecord() {
+        let audioURL = testDir.appendingPathComponent("retained.wav")
+        FileManager.default.createFile(atPath: audioURL.path, contents: Data([0x00]))
+        history.addFailure(error: "fail", audioFileURL: audioURL)
+
+        XCTAssertEqual(history.retainedFailedAudioCount, 1)
+
+        history.clearRetainedFailedAudio()
+
+        XCTAssertEqual(history.records.count, 1)
+        XCTAssertEqual(history.records.first?.error, "fail")
+        XCTAssertNil(history.records.first?.audioFileURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: audioURL.path))
+        XCTAssertEqual(history.retainedFailedAudioCount, 0)
+    }
+
+    func testExportMarkdownIncludesTranscriptsAndFailures() {
+        history.addFailure(error: "timeout", audioFileURL: nil)
+        history.addSuccess(text: "hello")
+
+        let markdown = history.exportMarkdown()
+
+        XCTAssertTrue(markdown.contains("## Transcript"))
+        XCTAssertTrue(markdown.contains("hello"))
+        XCTAssertTrue(markdown.contains("## Failure"))
+        XCTAssertTrue(markdown.contains("timeout"))
+    }
+
+    func testExportJSONContainsRecords() throws {
+        history.addSuccess(text: "hello")
+
+        let json = try history.exportJSON()
+
+        XCTAssertTrue(json.contains("hello"))
+        XCTAssertTrue(json.contains("timestamp"))
+    }
+
     func testPreviewText() {
         history.addSuccess(text: "This is a long transcription that should be truncated for display in the menu")
         let record = history.records.first!

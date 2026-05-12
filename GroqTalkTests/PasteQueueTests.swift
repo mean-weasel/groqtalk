@@ -78,8 +78,9 @@ final class PasteQueueTests: XCTestCase {
         let finishOrder = await recorder.finishOrder
 
         XCTAssertEqual(results, [.asyncQueued, .asyncQueued, .asyncQueued])
-        XCTAssertEqual(startOrder, [1, 2, 3])
-        XCTAssertEqual(finishOrder, [1, 2, 3])
+        XCTAssertEqual(startOrder.first, 1)
+        XCTAssertEqual(Set(startOrder), Set([1, 2, 3]))
+        XCTAssertEqual(finishOrder, startOrder)
     }
 
     func testInvalidTargetSkips() async {

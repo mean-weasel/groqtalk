@@ -52,7 +52,7 @@ final class LanguageTests: XCTestCase {
         try Data([0x00]).write(to: tempURL)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: tempURL, model: "m", format: .wav,
             language: .auto, boundary: "b"
         )
@@ -68,7 +68,7 @@ final class LanguageTests: XCTestCase {
         try Data([0x00]).write(to: tempURL)
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: tempURL, model: "m", format: .wav,
             language: .ja, boundary: "b"
         )
@@ -112,7 +112,7 @@ final class LanguageTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: tempURL) }
 
         for lang in Language.allCases where lang != .auto {
-            let body = try service.buildMultipartBody(
+            let body = try TranscriptionService.buildMultipartBody(
                 audioFileURL: tempURL, model: "m", format: .wav,
                 language: lang, boundary: "b"
             )

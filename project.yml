@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     macOS: "14.0"
   minimumXcodeGenVersion: "2.0"
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 targets:
   GroqTalk:
     type: application
@@ -12,15 +16,18 @@ targets:
     settings:
       base:
         ENABLE_HARDENED_RUNTIME: YES
-        MARKETING_VERSION: "0.1.0"
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.8.2"
+        CURRENT_PROJECT_VERSION: 32
         CODE_SIGN_ENTITLEMENTS: GroqTalk/GroqTalk.entitlements
         CODE_SIGN_IDENTITY: "-"
+    dependencies:
+      - package: Sparkle
     info:
       path: GroqTalk/Info.plist
       properties:
         LSUIElement: true
         NSMicrophoneUsageDescription: "GroqTalk needs microphone access to record audio for speech-to-text."
+        SUFeedURL: "https://github.com/neonwatty/groqtalk/releases/latest/download/appcast.xml"
   GroqTalkTests:
     type: bundle.unit-test
     platform: macOS

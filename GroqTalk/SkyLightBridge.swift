@@ -148,8 +148,10 @@ enum SkyLightBridge {
         )
         guard axResult == .success, let windowElement = value else { return nil }
 
-        // AXUIElement is a CFTypeRef — bridge to the typed version
-        let axWindow = windowElement as! AXUIElement // swiftlint:disable:this force_cast
+        // AXUIElement is a CFTypeRef — validate type before casting
+        guard CFGetTypeID(windowElement as CFTypeRef) == AXUIElementGetTypeID() else { return nil }
+        // swiftlint:disable:next force_cast
+        let axWindow = windowElement as! AXUIElement
         guard let wid = windowID(from: axWindow) else { return nil }
         return (pid: pid, windowID: wid)
     }

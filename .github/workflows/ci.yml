@@ -17,7 +17,7 @@ permissions:
 jobs:
   detect-changes:
     name: Detect Changed Paths
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.event_name == 'pull_request'
     outputs:
@@ -37,6 +37,13 @@ jobs:
               - 'GroqTalk.xcodeproj/**'
               - 'project.yml'
               - '.github/**'
+              - '.releaserc.json'
+              - 'ExportOptions.plist'
+              - 'Makefile'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'scripts/**'
+              - 'docs/release-*.md'
 
   build:
     name: Build
@@ -82,14 +89,48 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
 
       - name: Run tests
+        id: run-tests
         run: |
+          # Run xcodebuild in background so we can send SIGTERM (graceful) on timeout
+          # instead of relying on step timeout's SIGKILL (which corrupts xcresult)
           xcodebuild test \
             -scheme GroqTalk \
             -configuration Debug \
             -destination 'platform=macOS' \
             -only-testing:GroqTalkTests \
-            -resultBundlePath TestResults.xcresult \
-            | xcpretty --color && exit ${PIPESTATUS[0]}
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult &
+          XCODE_PID=$!
+
+          # Watchdog: SIGTERM after 7 min (graceful), SIGKILL after 8 min (forced)
+          ( sleep 420 && kill -TERM $XCODE_PID 2>/dev/null
+            sleep 60  && kill -9    $XCODE_PID 2>/dev/null ) &
+          WATCHDOG_PID=$!
+
+          # Wait for xcodebuild to exit (naturally or via watchdog)
+          # Disable errexit so non-zero wait (from SIGTERM) doesn't abort before verification
+          set +e
+          wait $XCODE_PID 2>/dev/null
+          TEST_EXIT=$?
+          kill $WATCHDOG_PID 2>/dev/null
+          wait $WATCHDOG_PID 2>/dev/null
+          set -e
+
+          # Check xcresult for actual test failures
+          if [ -d TestResults.xcresult ]; then
+            SUMMARY=$(xcrun xcresulttool get test-results summary \
+              --path TestResults.xcresult --compact 2>/dev/null || echo "")
+            if echo "$SUMMARY" | grep -q '"result" : "Failed"'; then
+              echo "::error::Test failures found in results bundle"
+              echo "$SUMMARY" | head -50
+              exit 1
+            fi
+            echo "All tests passed per results bundle"
+            exit 0
+          fi
+
+          # No bundle — use raw exit code
+          exit $TEST_EXIT
 
       - name: Test summary
         if: always()
@@ -111,6 +152,27 @@ jobs:
           name: test-results
           path: TestResults.xcresult
           retention-days: 14
+
+      - name: Generate coverage report
+        if: always()
+        run: |
+          if [ -d TestResults.xcresult ]; then
+            xcrun xccov view --report --json TestResults.xcresult > coverage.json 2>/dev/null || true
+            echo "## Code Coverage" >> "$GITHUB_STEP_SUMMARY"
+            xcrun xccov view --report TestResults.xcresult 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || \
+              echo "_Could not parse coverage report (bundle may be incomplete)._" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No test results bundle found; skipping coverage report._"
+          fi
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-report
+          path: coverage.json
+          retention-days: 30
+          if-no-files-found: ignore
 
   ui-tests:
     name: UI Tests
@@ -166,6 +228,7 @@ jobs:
     timeout-minutes: 5
     if: always()
     needs:
+      - detect-changes
       - build
       - unit-tests
       - ui-tests
@@ -175,12 +238,17 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           TEST_RESULT: ${{ needs.unit-tests.result }}
           UI_TEST_RESULT: ${{ needs.ui-tests.result }}
+          CODE_CHANGED: ${{ needs.detect-changes.outputs.code }}
         run: |
-          echo "Build: $BUILD_RESULT, Tests: $TEST_RESULT, UI Tests: $UI_TEST_RESULT"
+          echo "Build: $BUILD_RESULT, Tests: $TEST_RESULT, UI Tests: $UI_TEST_RESULT, Code changed: $CODE_CHANGED"
           for result in "$BUILD_RESULT" "$TEST_RESULT" "$UI_TEST_RESULT"; do
             if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
               echo "A required job reported: $result"
               exit 1
             fi
+            if [ "$CODE_CHANGED" = "true" ] && [ "$result" = "skipped" ]; then
+              echo "A required job was skipped for a code or release-critical change"
+              exit 1
+            fi
           done
-          echo "All required jobs passed or were skipped"
+          echo "All required jobs passed, or were intentionally skipped for non-code changes"

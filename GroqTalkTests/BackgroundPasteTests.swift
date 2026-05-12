@@ -28,6 +28,41 @@ final class BackgroundPasteTests: XCTestCase {
         XCTAssertEqual(result, .failed)
     }
 
+    func testAttemptDoesNotUseSkyLightUnlessExplicitlyEnabled() async {
+        let target = PasteTarget(
+            windowElement: nil,
+            windowID: 12345,
+            pid: ProcessInfo.processInfo.processIdentifier,
+            appName: "GroqTalkTests"
+        )
+
+        let result = await BackgroundPaste.attempt(
+            text: "hello",
+            target: target,
+            keepOnClipboard: false,
+            allowSkyLight: false
+        )
+
+        XCTAssertEqual(result, .failed)
+    }
+
+    func testBackgroundPasteNoLongerUsesArbitraryFirstTextField() async {
+        let target = PasteTarget(
+            windowElement: nil,
+            windowID: nil,
+            pid: ProcessInfo.processInfo.processIdentifier,
+            appName: "GroqTalkTests"
+        )
+
+        let result = await BackgroundPaste.attempt(
+            text: "hello",
+            target: target,
+            keepOnClipboard: false
+        )
+
+        XCTAssertEqual(result, .failed)
+    }
+
     func testGuardedRestoreSkipsWhenClipboardChangesDuringPasteDelay() {
         let pasteboardName = NSPasteboard.Name("GroqTalkTests.\(UUID().uuidString)")
         let pasteboard = NSPasteboard(name: pasteboardName)
@@ -77,7 +112,7 @@ final class BackgroundPasteTests: XCTestCase {
         XCTAssertEqual(pasteboard.string(forType: .string), "original clipboard")
     }
 
-    func testClipboardFallbackRestoresPreviousClipboardWhenKeepOff() async {
+    func testClipboardFallbackLeavesTranscriptOnClipboardWhenKeepOff() async {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString("previous clipboard", forType: .string)
@@ -90,7 +125,7 @@ final class BackgroundPasteTests: XCTestCase {
         )
 
         XCTAssertEqual(delivery, .clipboardFallback)
-        XCTAssertEqual(pasteboard.string(forType: .string), "previous clipboard")
+        XCTAssertEqual(pasteboard.string(forType: .string), "private transcript")
     }
 
     func testClipboardFallbackKeepsTranscriptWhenKeepOnClipboardIsEnabled() async {

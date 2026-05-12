@@ -37,16 +37,12 @@ struct TextInserter {
 
         guard let targetApp = NSRunningApplication(processIdentifier: target.pid),
               !targetApp.isTerminated else {
-            // Target app is gone. Leave text on the clipboard only when the
-            // user has explicitly asked GroqTalk to keep transcripts there.
+            // Target app is gone. Leave the transcript on the clipboard as the
+            // recovery path even when normal successful pastes restore it.
             DiagnosticLog.write("TextInserter.insertAtTarget: route=clipboardFallback target=\(target.appName) pid=\(target.pid)")
             let pasteboard = NSPasteboard.general
-            let saved = keepOnClipboard ? [] : Self.savePasteboardContents(pasteboard)
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
-            if !keepOnClipboard {
-                Self.restorePasteboardContents(pasteboard, saved: saved)
-            }
             return .clipboardFallback
         }
 
@@ -73,13 +69,22 @@ struct TextInserter {
         return .asyncChoreography
     }
 
-    /// Primary entry point for async paste. Tries SkyLight background
-    /// paste (Tier 1), falls back to window choreography (Tier 2).
+    /// Primary entry point for async paste. Tries verified AX background paste
+    /// first, optionally tries experimental SkyLight command posting, then
+    /// falls back to window choreography.
     @discardableResult
-    func insertAsync(text: String, target: PasteTarget, keepOnClipboard: Bool) async -> PasteDelivery {
-        // Tier 1: SkyLight background paste (invisible)
+    func insertAsync(
+        text: String,
+        target: PasteTarget,
+        keepOnClipboard: Bool,
+        allowSkyLight: Bool = false
+    ) async -> PasteDelivery {
+        // Tier 1: background paste (invisible when verified AX succeeds).
         let backgroundResult = await BackgroundPaste.attempt(
-            text: text, target: target, keepOnClipboard: keepOnClipboard
+            text: text,
+            target: target,
+            keepOnClipboard: keepOnClipboard,
+            allowSkyLight: allowSkyLight
         )
         if backgroundResult == .verified {
             DiagnosticLog.write("insertAsync: Tier 1 (AX) verified for \(target.appName)")

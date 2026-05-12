@@ -27,10 +27,10 @@ enum KeychainHelper {
         #endif
     }
 
-    private static var legacyPlaintextStorageURL: URL {
-        let appSupport = FileManager.default.urls(
+    private static var legacyPlaintextStorageURL: URL? {
+        guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
+        ).first else { return nil }
         #if DEBUG
         if let storageDirectoryOverride {
             return storageDirectoryOverride.appendingPathComponent("api-key")
@@ -45,12 +45,16 @@ enum KeychainHelper {
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         try saveToKeychain(apiKey: trimmed)
-        try? FileManager.default.removeItem(at: legacyPlaintextStorageURL)
+        if let legacyURL = legacyPlaintextStorageURL {
+            try? FileManager.default.removeItem(at: legacyURL)
+        }
     }
 
     static func readApiKey() -> String? {
         if let key = readFromKeychain() {
-            try? FileManager.default.removeItem(at: legacyPlaintextStorageURL)
+            if let legacyURL = legacyPlaintextStorageURL {
+                try? FileManager.default.removeItem(at: legacyURL)
+            }
             return key
         }
         return migrateLegacyPlaintextFile()
@@ -58,7 +62,9 @@ enum KeychainHelper {
 
     static func delete() {
         deleteFromKeychain()
-        try? FileManager.default.removeItem(at: legacyPlaintextStorageURL)
+        if let legacyURL = legacyPlaintextStorageURL {
+            try? FileManager.default.removeItem(at: legacyURL)
+        }
     }
 
     // MARK: - Keychain storage
@@ -117,17 +123,20 @@ enum KeychainHelper {
     // MARK: - Legacy plaintext migration
 
     private static func migrateLegacyPlaintextFile() -> String? {
-        guard let data = try? Data(contentsOf: legacyPlaintextStorageURL),
-           let key = String(data: data, encoding: .utf8)?
+        guard let legacyURL = legacyPlaintextStorageURL,
+              let data = try? Data(contentsOf: legacyURL),
+              let key = String(data: data, encoding: .utf8)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
-           !key.isEmpty else {
-            try? FileManager.default.removeItem(at: legacyPlaintextStorageURL)
+              !key.isEmpty else {
+            if let legacyURL = legacyPlaintextStorageURL {
+                try? FileManager.default.removeItem(at: legacyURL)
+            }
             return nil
         }
 
         do {
             try saveToKeychain(apiKey: key)
-            try? FileManager.default.removeItem(at: legacyPlaintextStorageURL)
+            try? FileManager.default.removeItem(at: legacyURL)
             return key
         } catch {
             DiagnosticLog.write("KeychainHelper: failed to migrate legacy plaintext API key status=\(error.localizedDescription)")

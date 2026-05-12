@@ -47,7 +47,10 @@ struct PasteTarget {
                 attribute as CFString,
                 &windowRef
             )
-            if result == .success, let ref = windowRef {
+            if result == .success,
+               let ref = windowRef,
+               CFGetTypeID(ref) == AXUIElementGetTypeID() {
+                // Safe: CFTypeID verified above before force cast
                 // swiftlint:disable:next force_cast
                 return (ref as! AXUIElement)
             }

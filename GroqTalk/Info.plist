@@ -22,5 +22,7 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>GroqTalk needs microphone access to record audio for speech-to-text.</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/neonwatty/groqtalk/releases/latest/download/appcast.xml</string>
 </dict>
 </plist>

@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    branches: [feat/initial-implementation]
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -81,6 +81,61 @@ jobs:
           VERSION: ${{ needs.release.outputs.new_release_version }}
         run: .github/scripts/build-release-dmg.sh
 
+      - name: Validate notarization
+        env:
+          VERSION: ${{ needs.release.outputs.new_release_version }}
+        run: |
+          DMG_PATH="$RUNNER_TEMP/GroqTalk-${VERSION}-macos.dmg"
+          echo "Validating notarization for: $DMG_PATH"
+          spctl --assess --type open --context context:primary-signature -v "$DMG_PATH"
+          if [ $? -ne 0 ]; then
+            echo "Notarization validation FAILED: spctl rejected the DMG" >&2
+            exit 1
+          fi
+          echo "Notarization validation passed."
+
+      - name: Generate and upload appcast.xml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.new_release_version }}
+        run: |
+          DMG_PATH="$RUNNER_TEMP/GroqTalk-${VERSION}-macos.dmg"
+          DMG_FILENAME="GroqTalk-${VERSION}-macos.dmg"
+          DMG_URL="https://github.com/neonwatty/groqtalk/releases/download/v${VERSION}/${DMG_FILENAME}"
+          FILE_SIZE=$(stat -f%z "$DMG_PATH")
+          BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
+          PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
+          APPCAST_PATH="$RUNNER_TEMP/appcast.xml"
+
+          cat > "$APPCAST_PATH" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>GroqTalk</title>
+              <link>https://github.com/neonwatty/groqtalk</link>
+              <description>GroqTalk Updates</description>
+              <language>en</language>
+              <item>
+                <title>Version ${VERSION}</title>
+                <pubDate>${PUB_DATE}</pubDate>
+                <sparkle:version>${BUILD_NUMBER}</sparkle:version>
+                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <enclosure
+                  url="${DMG_URL}"
+                  length="${FILE_SIZE}"
+                  type="application/octet-stream"
+                />
+              </item>
+            </channel>
+          </rss>
+          EOF
+
+          echo "Generated appcast.xml:"
+          cat "$APPCAST_PATH"
+
+          gh release upload "v${VERSION}" "$APPCAST_PATH" --clobber
+
       - name: Cleanup keychain
         if: always()
         run: |
@@ -118,6 +173,61 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: .github/scripts/build-release-dmg.sh
+
+      - name: Validate notarization
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          DMG_PATH="$RUNNER_TEMP/GroqTalk-${VERSION}-macos.dmg"
+          echo "Validating notarization for: $DMG_PATH"
+          spctl --assess --type open --context context:primary-signature -v "$DMG_PATH"
+          if [ $? -ne 0 ]; then
+            echo "Notarization validation FAILED: spctl rejected the DMG" >&2
+            exit 1
+          fi
+          echo "Notarization validation passed."
+
+      - name: Generate and upload appcast.xml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          DMG_PATH="$RUNNER_TEMP/GroqTalk-${VERSION}-macos.dmg"
+          DMG_FILENAME="GroqTalk-${VERSION}-macos.dmg"
+          DMG_URL="https://github.com/neonwatty/groqtalk/releases/download/v${VERSION}/${DMG_FILENAME}"
+          FILE_SIZE=$(stat -f%z "$DMG_PATH")
+          BUILD_NUMBER="${GITHUB_RUN_NUMBER:-1}"
+          PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
+          APPCAST_PATH="$RUNNER_TEMP/appcast.xml"
+
+          cat > "$APPCAST_PATH" <<EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>GroqTalk</title>
+              <link>https://github.com/neonwatty/groqtalk</link>
+              <description>GroqTalk Updates</description>
+              <language>en</language>
+              <item>
+                <title>Version ${VERSION}</title>
+                <pubDate>${PUB_DATE}</pubDate>
+                <sparkle:version>${BUILD_NUMBER}</sparkle:version>
+                <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+                <enclosure
+                  url="${DMG_URL}"
+                  length="${FILE_SIZE}"
+                  type="application/octet-stream"
+                />
+              </item>
+            </channel>
+          </rss>
+          EOF
+
+          echo "Generated appcast.xml:"
+          cat "$APPCAST_PATH"
+
+          gh release upload "v${VERSION}" "$APPCAST_PATH" --clobber
 
       - name: Cleanup keychain
         if: always()

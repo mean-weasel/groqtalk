@@ -28,11 +28,13 @@ final class AppStateTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "hotkeyChoice")
         UserDefaults.standard.removeObject(forKey: "language")
         UserDefaults.standard.removeObject(forKey: "asyncPasteEnabled")
+        UserDefaults.standard.removeObject(forKey: "experimentalSkyLightPasteEnabled")
         UserDefaults.standard.removeObject(forKey: "showLiveFeedbackHUD")
         UserDefaults.standard.removeObject(forKey: "showFloatingStatus")
         UserDefaults.standard.removeObject(forKey: "mockTranscriptionEnabled")
         UserDefaults.standard.removeObject(forKey: "transcriptProcessingMode")
         UserDefaults.standard.removeObject(forKey: "transcriptCleanupModel")
+        UserDefaults.standard.removeObject(forKey: "selectedInputDeviceID")
     }
 
     private func markSetupReady(_ state: AppState) {
@@ -245,6 +247,24 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(presentation.detail, "Enable Accessibility before recording")
         XCTAssertEqual(presentation.primaryAction, .openAccessibility)
         XCTAssertEqual(presentation.tone, .warning)
+    }
+
+    func testSetupSessionPresentationShowsInvalidApiKeyAfterPermissionsReady() {
+        let state = AppState()
+        state.updateAccessibilityState(isTrusted: true)
+        state.updateMicrophoneState(isReady: true)
+        state.apiKeyState = .needsAction("Invalid Groq API key")
+
+        let presentation = state.sessionPresentation(
+            hotkeyLabel: "Right Command",
+            hasRetryableFailure: false,
+            hasLastSuccess: false
+        )
+
+        XCTAssertEqual(presentation.title, "Setup needed")
+        XCTAssertEqual(presentation.detail, "Invalid Groq API key")
+        XCTAssertEqual(presentation.primaryAction, .addKey)
+        XCTAssertFalse(state.isSetupReady)
     }
 
     func testRecordingSessionPresentationShowsTimerAndTarget() {
@@ -681,6 +701,17 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(state.asyncPasteEnabled)
     }
 
+    func testExperimentalSkyLightPasteDefaultsOff() {
+        let state = AppState()
+        XCTAssertFalse(state.experimentalSkyLightPasteEnabled)
+    }
+
+    func testSetExperimentalSkyLightPaste() {
+        let state = AppState()
+        state.experimentalSkyLightPasteEnabled = true
+        XCTAssertTrue(state.experimentalSkyLightPasteEnabled)
+    }
+
     func testRecordPasteUpdatesUserFeedback() {
         let state = AppState()
 
@@ -736,6 +767,53 @@ final class AppStateTests: XCTestCase {
         XCTAssertTrue(state.mockTranscriptionEnabled)
     }
     #endif
+
+    // MARK: - Recording time warning
+
+    @MainActor
+    func testIsApproachingTimeLimitFalseWhenNotRecording() {
+        let state = AppState()
+        state.recordingDuration = 550
+        XCTAssertFalse(state.isApproachingTimeLimit)
+    }
+
+    @MainActor
+    func testIsApproachingTimeLimitTrueWhenRecordingPastThreshold() {
+        let state = AppState()
+        state.setStatus(.recording)
+        state.recordingDuration = 541
+        XCTAssertTrue(state.isApproachingTimeLimit)
+    }
+
+    @MainActor
+    func testRemainingRecordingTimeCalculation() {
+        let state = AppState()
+        state.recordingDuration = 500
+        XCTAssertEqual(state.remainingRecordingTime, 100, accuracy: 0.01)
+    }
+
+    @MainActor
+    func testRemainingTimeNeverNegative() {
+        let state = AppState()
+        state.recordingDuration = 700
+        XCTAssertEqual(state.remainingRecordingTime, 0)
+    }
+
+    @MainActor
+    func testFormattedRemainingTime() {
+        let state = AppState()
+        state.recordingDuration = 540
+        XCTAssertEqual(state.formattedRemainingTime, "1:00")
+    }
+
+    @MainActor
+    func testSelectedInputDeviceIDPersists() {
+        let state = AppState()
+        state.selectedInputDeviceID = 42
+        XCTAssertEqual(state.selectedInputDeviceID, 42)
+        state.selectedInputDeviceID = nil
+        XCTAssertNil(state.selectedInputDeviceID)
+    }
 
     // MARK: - Transcript processing
 

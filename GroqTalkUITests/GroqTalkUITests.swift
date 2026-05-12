@@ -26,6 +26,7 @@ final class GroqTalkUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Second searchable transcript."].exists)
         XCTAssertTrue(app.buttons["History"].exists)
         XCTAssertTrue(app.buttons["Settings"].exists)
+        XCTAssertTrue(app.buttons["Help"].exists)
         XCTAssertTrue(app.buttons["Start recording"].exists)
         XCTAssertTrue(app.buttons["Start recording"].isEnabled)
         XCTAssertTrue(app.buttons["Stop recording"].exists)
@@ -128,6 +129,23 @@ final class GroqTalkUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["No transcriptions yet"].waitForExistence(timeout: 2))
     }
 
+    func testHistoryDetailAllowsEditingAndExport() {
+        app.buttons["History"].click()
+        XCTAssertTrue(app.windows["History"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["Export"].exists)
+
+        let detailsButtons = app.windows["History"].buttons.matching(NSPredicate(format: "label == %@", "Details"))
+        XCTAssertGreaterThanOrEqual(detailsButtons.count, 2, app.debugDescription)
+        detailsButtons.element(boundBy: 1).click()
+        let editor = app.textViews["history.detail.editor"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 2), app.debugDescription)
+        XCTAssertTrue(app.buttons["Save"].exists)
+        XCTAssertTrue(app.buttons["Copy"].exists)
+        XCTAssertTrue(app.buttons["Paste"].exists)
+        XCTAssertTrue(app.buttons["Delete"].exists)
+        app.buttons["Done"].click()
+    }
+
     func testSettingsPanelOpensInsideMenuBarPopover() {
         app.buttons["Settings"].click()
         XCTAssertFalse(app.windows["Settings"].waitForExistence(timeout: 1))
@@ -137,6 +155,8 @@ final class GroqTalkUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Paste"].exists)
         XCTAssertTrue(app.staticTexts["Privacy"].exists)
         XCTAssertTrue(app.buttons["Change API Key"].exists)
+        XCTAssertTrue(app.checkBoxes["Experimental background paste"].exists)
+        XCTAssertTrue(app.staticTexts["Retained failed audio"].exists)
     }
 
     func testMockTogglePersistsAcrossLaunches() {
@@ -215,9 +235,17 @@ final class GroqTalkUITests: XCTestCase {
     func testFloatingStatusIsDisabledByDefault() {
         app.buttons["Simulate Success"].click()
 
-        XCTAssertFalse(app.windows["GroqTalk Floating Status"].waitForExistence(timeout: 1))
         XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: 6))
+        XCTAssertTrue(app.windows["GroqTalk Floating Status"].waitForNonExistence(timeout: 2))
         XCTAssertTrue(app.staticTexts["Paste command sent to the current app"].waitForExistence(timeout: 2))
+    }
+
+    func testOnboardingNotShownForReturningUser() {
+        let app = XCUIApplication()
+        app.launchArguments += ["--ui-testing"]
+        app.launch()
+        // UI testing mode should skip onboarding
+        XCTAssertFalse(app.windows["Welcome to GroqTalk"].exists)
     }
 
     private var controlCenter: XCUIElement {

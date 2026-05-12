@@ -118,6 +118,14 @@ final class IntegrationTests: XCTestCase {
                 XCTFail("\(format.rawValue): API key is invalid — verify GROQ_API_KEY is current")
             } catch TranscriptionService.TranscriptionError.fileTooLarge {
                 XCTFail("\(format.rawValue): file too large for API — check test audio generation")
+            } catch TranscriptionService.TranscriptionError.rateLimited {
+                XCTFail("\(format.rawValue): Groq rate limit reached — retry later")
+            } catch TranscriptionService.TranscriptionError.quotaExceeded {
+                XCTFail("\(format.rawValue): Groq quota exceeded — check account limits")
+            } catch TranscriptionService.TranscriptionError.modelUnavailable(let model) {
+                XCTFail("\(format.rawValue): model unavailable — \(model)")
+            } catch TranscriptionService.TranscriptionError.serverError(let code) {
+                XCTFail("\(format.rawValue): Groq server error \(code)")
             } catch TranscriptionService.TranscriptionError.apiError(let code, let body) {
                 XCTFail("\(format.rawValue): API returned \(code) — \(body)")
             } catch {
@@ -140,7 +148,7 @@ final class IntegrationTests: XCTestCase {
             }
 
             let service = TranscriptionService()
-            let body = try service.buildMultipartBody(
+            let body = try TranscriptionService.buildMultipartBody(
                 audioFileURL: url, model: "whisper-large-v3-turbo",
                 format: format, boundary: "test-boundary"
             )
@@ -168,7 +176,7 @@ final class IntegrationTests: XCTestCase {
         let url = track(try recorder.writeWAV(buffers: [buffer]))
 
         let service = TranscriptionService()
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: url, model: "whisper-large-v3-turbo",
             format: .wav, language: .es, boundary: "test-boundary"
         )
@@ -185,7 +193,7 @@ final class IntegrationTests: XCTestCase {
         let url = track(try recorder.writeWAV(buffers: [buffer]))
 
         let service = TranscriptionService()
-        let body = try service.buildMultipartBody(
+        let body = try TranscriptionService.buildMultipartBody(
             audioFileURL: url, model: "whisper-large-v3-turbo",
             format: .wav, language: .auto, boundary: "test-boundary"
         )
@@ -195,5 +203,51 @@ final class IntegrationTests: XCTestCase {
             bodyString.contains("name=\"language\""),
             "Auto-detect should not include language field"
         )
+    }
+
+    // MARK: - Error recovery
+
+    @MainActor
+    func testErrorStateClearsOnNewRecording() {
+        let state = AppState()
+        state.showError("Network timeout")
+        XCTAssertEqual(state.status, .error("Network timeout"), "Status should be error before recording")
+
+        state.setStatus(.recording)
+
+        XCTAssertEqual(state.status, .recording, "Status should be recording after setStatus(.recording)")
+        XCTAssertFalse(state.isError, "isError should be false once recording begins")
+    }
+
+    @MainActor
+    func testTransientResultClearsOnNewRecording() {
+        let state = AppState()
+        state.recordPaste(.currentApp)
+        XCTAssertNotNil(state.transientResult, "transientResult should be set after recordPaste")
+
+        state.setStatus(.recording)
+
+        XCTAssertNil(state.transientResult, "transientResult should be cleared when recording starts")
+    }
+
+    @MainActor
+    func testMultipleErrorsDoNotAccumulate() {
+        let state = AppState()
+        state.showError("First error")
+        XCTAssertEqual(state.status, .error("First error"))
+
+        state.showError("Second error")
+
+        XCTAssertEqual(
+            state.status,
+            .error("Second error"),
+            "Latest error should replace the previous error"
+        )
+        // Verify the first error is gone — only one error state is held at a time.
+        if case .error(let message) = state.status {
+            XCTAssertEqual(message, "Second error", "Only the most recent error should be stored")
+        } else {
+            XCTFail("Status should still be .error after calling showError a second time")
+        }
     }
 }

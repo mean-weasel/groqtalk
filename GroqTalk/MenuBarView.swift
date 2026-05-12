@@ -97,6 +97,15 @@ struct MenuBarView: View {
             .accessibilityLabel("History")
             .accessibilityIdentifier("menu.historyButton")
 
+            Button {
+                openTroubleshooting()
+            } label: {
+                Image(systemName: "questionmark.circle")
+            }
+            .accessibilityLabel("Help")
+            .accessibilityIdentifier("menu.helpButton")
+            .help("Open troubleshooting")
+
             Spacer()
 
             if history.retryableRecord != nil {
@@ -218,11 +227,20 @@ struct MenuBarView: View {
                     Text(appState.asyncPasteEnabled ? "Captures the target app when recording starts and returns focus after pasting." : "Pastes into the app active when transcription finishes.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Toggle("Experimental background paste", isOn: $appState.experimentalSkyLightPasteEnabled)
+                        .accessibilityIdentifier("menu.settings.experimentalSkyLightPasteToggle")
+                    Text("Uses private macOS paste routing when available. Command-posted results are not verified.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 settingsSection("Privacy") {
-                    LabeledContent("History retention", value: "Last \(TranscriptionHistory.maxRecords) records")
+                    LabeledContent(
+                        "History retention",
+                        value: history.isPersistenceEnabled ? "Last \(history.retentionLimit) records" : "Off"
+                    )
                     LabeledContent("Stored records", value: "\(history.records.count)")
+                    LabeledContent("Retained failed audio", value: "\(history.retainedFailedAudioCount)")
                     Text("History stays on this Mac. Successful audio is deleted after transcription. Failed audio may be retained locally only for retry, and Clear History deletes those retry files.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -309,7 +327,7 @@ struct MenuBarView: View {
                 Text(setupCheckDetail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .accessibilityIdentifier("menu.setup.test.state")
                 Button(setupCheckButtonTitle) {
                     onRunSetupCheck?()
@@ -347,7 +365,7 @@ struct MenuBarView: View {
                 Text(permissionText(for: state))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .accessibilityIdentifier("menu.setup.\(title).state")
                 if let actionTitle, let action {
                     Button(actionTitle) {
@@ -386,7 +404,7 @@ struct MenuBarView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 7) {
                     Text(session.title)
                         .font(.headline)
-                        .lineLimit(1)
+                        .lineLimit(2)
                         .accessibilityIdentifier("menu.status.title")
                     if let timerText = session.timerText {
                         Text(timerText)
@@ -398,8 +416,18 @@ struct MenuBarView: View {
                 Text(session.detail)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .accessibilityIdentifier("menu.status.detail")
+                if appState.isApproachingTimeLimit {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("\(appState.formattedRemainingTime) remaining")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    .accessibilityIdentifier("menu.status.timeLimitWarning")
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -777,6 +805,12 @@ struct MenuBarView: View {
     private func copy(_ text: String) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func openTroubleshooting() {
+        if let url = URL(string: "https://github.com/neonwatty/groqtalk#paste-caveats") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func openHistory() {

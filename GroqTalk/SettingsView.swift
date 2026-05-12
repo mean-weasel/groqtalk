@@ -8,6 +8,9 @@ struct SettingsView: View {
 
     @Environment(\.openWindow) private var openWindow
     @State private var isShowingClearHistoryConfirmation = false
+    @State private var launchAtLoginManager = LaunchAtLoginManager()
+    @State private var notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+    private var sparkleUpdater: SparkleUpdater { SparkleUpdater.shared }
 
     var body: some View {
         TabView {
@@ -52,6 +55,37 @@ struct SettingsView: View {
                 .accessibilityIdentifier("settings.floatingStatusToggle")
             Toggle("Keep final text on clipboard", isOn: $appState.keepOnClipboard)
                 .accessibilityIdentifier("settings.keepClipboardToggle")
+            Toggle("Launch at Login", isOn: Binding(
+                get: { launchAtLoginManager.isEnabled },
+                set: { launchAtLoginManager.setEnabled($0) }
+            ))
+            .accessibilityIdentifier("settings.launchAtLoginToggle")
+            Toggle("Show Notifications", isOn: $notificationsEnabled)
+                .accessibilityIdentifier("settings.notificationsToggle")
+                .onChange(of: notificationsEnabled) { _, enabled in
+                    UserDefaults.standard.set(enabled, forKey: "notificationsEnabled")
+                    if enabled {
+                        Task {
+                            let granted = await NotificationManager.shared.requestAuthorization()
+                            if !granted {
+                                notificationsEnabled = false
+                                UserDefaults.standard.set(false, forKey: "notificationsEnabled")
+                            }
+                        }
+                    }
+                }
+
+            Section("Updates") {
+                Toggle("Automatically check for updates", isOn: Binding(
+                    get: { sparkleUpdater.automaticallyChecksForUpdates },
+                    set: { sparkleUpdater.automaticallyChecksForUpdates = $0 }
+                ))
+
+                Button("Check for Updates…") {
+                    sparkleUpdater.checkForUpdates()
+                }
+                .disabled(!sparkleUpdater.canCheckForUpdates)
+            }
         }
         .formStyle(.grouped)
     }
@@ -84,6 +118,14 @@ struct SettingsView: View {
                     Text(lang.displayName).tag(lang)
                 }
             }
+
+            Picker("Input Device", selection: $appState.selectedInputDeviceID) {
+                Text("System Default").tag(nil as UInt32?)
+                ForEach(AudioRecorder.availableInputDevices()) { device in
+                    Text(device.name).tag(Optional(device.id))
+                }
+            }
+            .accessibilityIdentifier("settings.inputDevicePicker")
         }
         .formStyle(.grouped)
     }
@@ -136,14 +178,26 @@ struct SettingsView: View {
             Text(appState.asyncPasteEnabled ? "GroqTalk captures the target app when recording starts and returns focus after pasting." : "GroqTalk pastes into the app that is active when transcription finishes.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            Toggle("Experimental background paste", isOn: $appState.experimentalSkyLightPasteEnabled)
+                .accessibilityIdentifier("settings.experimentalSkyLightPasteToggle")
+            Text("Uses private macOS paste routing when available. Leave off unless you are testing app-specific paste behavior.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
     }
 
     private var privacySettings: some View {
         Form {
-            LabeledContent("History retention", value: "Last \(TranscriptionHistory.maxRecords) records")
+            Picker("History retention", selection: retentionBinding) {
+                Text("Off").tag(0)
+                Text("Last 100 records").tag(100)
+                Text("Last 500 records").tag(500)
+                Text("Last 1000 records").tag(1000)
+            }
+            .accessibilityIdentifier("settings.historyRetentionPicker")
             LabeledContent("Stored records", value: "\(history.records.count)")
+            LabeledContent("Retained failed audio", value: "\(history.retainedFailedAudioCount)")
             Text("History is stored locally on this Mac. Successful audio files are deleted after transcription. When transcription fails, the failed audio may be retained locally only so you can retry it, and Clear History deletes those retained retry files.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -158,15 +212,34 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("settings.clearHistoryButton")
                 .disabled(history.records.isEmpty)
+                Button("Clear Failed Audio", role: .destructive) {
+                    history.clearRetainedFailedAudio()
+                }
+                .accessibilityIdentifier("settings.clearRetainedAudioButton")
+                .disabled(history.retainedFailedAudioCount == 0)
             }
         }
         .formStyle(.grouped)
     }
 
+    private var retentionBinding: Binding<Int> {
+        Binding(
+            get: { history.isPersistenceEnabled ? history.retentionLimit : 0 },
+            set: { value in
+                if value == 0 {
+                    history.isPersistenceEnabled = false
+                } else {
+                    history.isPersistenceEnabled = true
+                    history.retentionLimit = value
+                }
+            }
+        )
+    }
+
     private func openAppDataFolder() {
-        let appSupport = FileManager.default.urls(
+        guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
-        ).first!
+        ).first else { return }
         let dir = appSupport.appendingPathComponent("GroqTalk", isDirectory: true)
         NSWorkspace.shared.activateFileViewerSelecting([dir])
     }
