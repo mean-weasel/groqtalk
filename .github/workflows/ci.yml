@@ -146,12 +146,13 @@ jobs:
 
       - name: Generate coverage report
         if: always()
+        continue-on-error: true
         run: |
           if [ -d TestResults.xcresult ]; then
-            xcrun xccov view --report --json TestResults.xcresult > coverage.json
+            xcrun xccov view --report --json TestResults.xcresult > coverage.json 2>/dev/null || true
             echo "## Code Coverage" >> "$GITHUB_STEP_SUMMARY"
             xcrun xccov view --report TestResults.xcresult 2>/dev/null >> "$GITHUB_STEP_SUMMARY" || \
-              echo "_Could not parse coverage report._" >> "$GITHUB_STEP_SUMMARY"
+              echo "_Could not parse coverage report (bundle may be incomplete)._" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "_No test results bundle found; skipping coverage report._"
           fi
