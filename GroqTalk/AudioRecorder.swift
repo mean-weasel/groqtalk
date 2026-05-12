@@ -369,10 +369,10 @@ final class AudioRecorder: @unchecked Sendable {
                 mScope: kAudioObjectPropertyScopeGlobal,
                 mElement: kAudioObjectPropertyElementMain
             )
-            var nameRef: CFString = "" as CFString
-            var nameSize = UInt32(MemoryLayout<CFString>.size)
+            var nameRef: Unmanaged<CFString>?
+            var nameSize = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
             let nameStatus = AudioObjectGetPropertyData(deviceID, &nameAddress, 0, nil, &nameSize, &nameRef)
-            let deviceName = nameStatus == noErr ? (nameRef as String) : "Unknown Device"
+            let deviceName = nameStatus == noErr ? (nameRef?.takeRetainedValue() as String? ?? "Unknown Device") : "Unknown Device"
 
             inputDevices.append(AudioDevice(id: deviceID, name: deviceName, isInput: true))
         }
