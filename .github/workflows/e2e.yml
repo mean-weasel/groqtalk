@@ -1,0 +1,43 @@
+name: E2E Groq API Tests
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6am UTC
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-tests:
+    name: Live Groq API Tests
+    runs-on: macos-15
+    timeout-minutes: 10
+    # Don't run on forks (no access to secrets)
+    if: github.repository == 'mean-weasel/groqtalk'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.3.app/Contents/Developer
+
+      - name: Run live Groq E2E tests
+        env:
+          RUN_LIVE_GROQ_TESTS: "1"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then
+            echo "::warning::GROQ_API_KEY secret not set — skipping E2E tests"
+            exit 0
+          fi
+
+          xcodebuild test \
+            -scheme GroqTalk \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -only-testing:GroqTalkTests/IntegrationTests \
+            | xcpretty --color && exit ${PIPESTATUS[0]}
