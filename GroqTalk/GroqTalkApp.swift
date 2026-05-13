@@ -62,8 +62,6 @@ struct GroqTalkApp: App {
 
 @MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    static let automationMockSuccessNotification = Notification.Name("com.neonwatty.GroqTalk.automation.mockSuccess")
-
     let appState: AppState
     let history: TranscriptionHistory
 
@@ -83,9 +81,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var floatingStatusPanel: NSPanel?
     private var floatingStatusSyncTimer: Timer?
     private var transientSuccessAutoHideTimer: Timer?
-    private var uiTestWindow: NSWindow?
-    private var uiTestHistoryWindow: NSWindow?
-    private var uiTestSettingsWindow: NSWindow?
+    private var uiTestingController: UITestingController?
     private var onboardingWindow: NSWindow?
     private var hasCompletedOnboarding: Bool {
         get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
@@ -155,8 +151,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         transcriptionController.delegate = self
         pasteController = PasteController(textInserter: textInserter, appState: appState)
         pasteController.delegate = self
-        configureUITestingIfNeeded()
-        configureAutomationSmokeIfNeeded()
+        let uiTestingCtrl = UITestingController(
+            appState: appState,
+            history: history,
+            pasteController: pasteController,
+            startTranscribingAnimation: { [weak self] in self?.startTranscribingAnimation() },
+            stopTranscribingAnimation: { [weak self] in self?.stopTranscribingAnimation() },
+            onRetry: { [weak self] in self?.retryLast() },
+            onPasteLast: { [weak self] in self?.pasteLastSuccess() },
+            onStartRecording: { [weak self] in self?.startRecordingFromControl() },
+            onStopRecording: { [weak self] in self?.stopRecordingFromControl() },
+            onCancelRecording: { [weak self] in self?.cancelRecordingFromControl() },
+            onHotkeyChanged: { [weak self] in self?.applyHotkeyConfig() },
+            onOpenAccessibility: { [weak self] in self?.openAccessibilitySettings() },
+            onOpenMicrophone: { [weak self] in self?.openMicrophoneSettings() },
+            onRunSetupCheck: { [weak self] in self?.runSetupCheck() },
+            onRetryRecord: { [weak self] record in self?.retryRecord(record) },
+            onPasteText: { [weak self] text in self?.paste(text: text) }
+        )
+        uiTestingController = uiTestingCtrl
+        uiTestingCtrl.configureUITestingIfNeeded()
+        uiTestingCtrl.configureAutomationSmokeIfNeeded()
         refreshSetupHealth()
         wireHotkeyMonitor()
         applyHotkeyConfig()
@@ -193,172 +208,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         onboardingWindow = window
-    }
-
-    private func configureUITestingIfNeeded() {
-        let args = ProcessInfo.processInfo.arguments
-        guard args.contains("--ui-testing") else { return }
-
-        if args.contains("--reset-defaults") {
-            history.clear()
-            appState.soundEffectsEnabled = true
-            appState.keepOnClipboard = false
-            appState.asyncPasteEnabled = false
-            appState.selectedModel = "whisper-large-v3-turbo"
-            appState.selectedAudioFormat = .m4a
-            appState.selectedLanguage = .auto
-            appState.transcriptProcessingMode = .raw
-            appState.transcriptCleanupModel = "llama-3.3-70b-versatile"
-            appState.hotkeyChoice = .rightCommand
-            appState.recordingMode = .hold
-            appState.showFloatingStatus = false
-            appState.updateAccessibilityState(isTrusted: true)
-            appState.updateMicrophoneState(isReady: true)
-            appState.apiKeyState = .ready
-            appState.experimentalSkyLightPasteEnabled = false
-            appState.lastPasteSummary = nil
-            #if DEBUG
-            appState.mockTranscriptionEnabled = false
-            #endif
-        }
-
-        if args.contains("--seed-history") {
-            history.clear()
-            history.addSuccess(text: "Seeded transcript for UI testing.")
-            history.addSuccess(text: "Second searchable transcript.")
-            history.addFailure(error: "Seeded network failure", audioFileURL: nil)
-        }
-
-        showUITestWindow()
-    }
-
-    private func configureAutomationSmokeIfNeeded() {
-        guard ProcessInfo.processInfo.arguments.contains("--automation-smoke") else { return }
-        DistributedNotificationCenter.default().addObserver(
-            self,
-            selector: #selector(runAutomationMockSuccess),
-            name: Self.automationMockSuccessNotification,
-            object: nil
-        )
-        DiagnosticLog.write("automation smoke: enabled")
-    }
-
-    @objc private func runAutomationMockSuccess() {
-        let target = PasteTarget.captureCurrentTarget()
-        DiagnosticLog.write("automation smoke: requested target=\(String(describing: target))")
-        Task { @MainActor in
-            appState.asyncPasteEnabled = true
-            appState.recordTargetCapture(target)
-            #if DEBUG
-            appState.mockTranscriptionEnabled = true
-            #endif
-            appState.clearError()
-            appState.transcriptionStage = .transcribingAudio
-            appState.setStatus(.transcribing)
-            startTranscribingAnimation()
-            try? await Task.sleep(for: .milliseconds(500))
-            stopTranscribingAnimation()
-
-            let text = "Mock transcription automation smoke"
-            history.addSuccess(text: text)
-            appState.setStatus(.idle)
-
-            pasteController.setPendingTarget(target)
-            if target != nil {
-                DiagnosticLog.write("ASYNC PATH: automation smoke pasting via pasteController target=\(target!.appName) pid=\(target!.pid)")
-            }
-            await pasteController.paste(text: text)
-        }
-    }
-
-    private func showUITestWindow() {
-        let view = MenuBarView(
-            appState: appState,
-            history: history,
-            onRetry: { [weak self] in self?.retryLast() },
-            onPasteLast: { [weak self] in self?.pasteLastSuccess() },
-            onStartRecording: { [weak self] in self?.startRecordingFromControl() },
-            onStopRecording: { [weak self] in self?.stopRecordingFromControl() },
-            onCancelRecording: { [weak self] in self?.cancelRecordingFromControl() },
-            onHotkeyChanged: { [weak self] in self?.applyHotkeyConfig() },
-            onOpenHistory: { [weak self] in self?.showUITestHistoryWindow() },
-            onOpenSettings: { [weak self] in self?.showUITestSettingsWindow() },
-            onOpenAccessibility: { [weak self] in self?.openAccessibilitySettings() },
-            onOpenMicrophone: { [weak self] in self?.openMicrophoneSettings() },
-            onRunSetupCheck: { [weak self] in self?.runSetupCheck() },
-            onSimulateSuccess: { [weak self] in self?.simulateUITestTranscription(success: true) },
-            onSimulateFailure: { [weak self] in self?.simulateUITestTranscription(success: false) }
-        )
-        .accessibilityIdentifier("uiTest.controlCenter")
-        .frame(width: 360, height: 620)
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 640),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "GroqTalk UI Test"
-        window.contentView = fixedHostingView(rootView: view, size: NSSize(width: 360, height: 620))
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-        uiTestWindow = window
-    }
-
-    private func showUITestHistoryWindow() {
-        let view = HistoryPopoverView(
-            history: history,
-            onRetry: { [weak self] record in self?.retryRecord(record) },
-            onPaste: { [weak self] text in self?.paste(text: text) },
-            showsHeader: true
-        )
-        .accessibilityIdentifier("history.testHost")
-        .frame(width: 620, height: 560)
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 560),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "History"
-        window.contentView = fixedHostingView(rootView: view, size: NSSize(width: 620, height: 560))
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        uiTestHistoryWindow = window
-    }
-
-    private func showUITestSettingsWindow() {
-        let view = SettingsView(
-            appState: appState,
-            history: history,
-            onHotkeyChanged: { [weak self] in self?.applyHotkeyConfig() }
-        )
-        .accessibilityIdentifier("settings.testHost")
-        .frame(width: 560, height: 400)
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 560, height: 400),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Settings"
-        window.contentView = fixedHostingView(rootView: view, size: NSSize(width: 560, height: 400))
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        uiTestSettingsWindow = window
-    }
-
-    private func fixedHostingView<Content: View>(rootView: Content, size: NSSize) -> NSHostingView<Content> {
-        let hostingView = NSHostingView(rootView: rootView)
-        hostingView.frame = NSRect(origin: .zero, size: size)
-        hostingView.autoresizingMask = [.width, .height]
-        if #available(macOS 13.0, *) {
-            hostingView.sizingOptions = []
-        }
-        return hostingView
     }
 
     // MARK: - Floating status
@@ -510,51 +359,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func paste(text: String) {
         Task {
             await pasteController.pasteDirectly(text: text)
-        }
-    }
-
-    func simulateUITestTranscription(success: Bool) {
-        guard ProcessInfo.processInfo.arguments.contains("--ui-testing") else { return }
-        Task { @MainActor in
-            appState.clearError()
-            appState.setStatus(.recording)
-            // Use inline state mutation for the UI simulation -- does not go through RecordingController
-            appState.recordingStartTime = Date()
-            appState.recordingDuration = 0
-            try? await Task.sleep(for: .milliseconds(300))
-            appState.recordingStartTime = nil
-            appState.recordingDuration = 0
-            appState.transcriptionStage = .transcribingAudio
-            appState.setStatus(.transcribing)
-            startTranscribingAnimation()
-            try? await Task.sleep(for: .milliseconds(1_200))
-            appState.transcriptionStage = .cleaningTranscript
-            try? await Task.sleep(for: .milliseconds(1_200))
-            appState.transcriptionStage = .pasting
-            try? await Task.sleep(for: .milliseconds(1_200))
-            stopTranscribingAnimation()
-
-            if success {
-                let text = "Mock async paste transcript"
-                history.addSuccess(text: text)
-                appState.setStatus(.idle)
-                if appState.asyncPasteEnabled {
-                    let target = PasteTarget(
-                        windowElement: nil,
-                        windowID: nil,
-                        pid: ProcessInfo.processInfo.processIdentifier,
-                        appName: "GroqTalk UI Test"
-                    )
-                    appState.recordTargetCapture(target)
-                    pasteController.setPendingTarget(target)
-                    await pasteController.paste(text: text)
-                } else {
-                    await pasteController.pasteDirectly(text: text)
-                }
-            } else {
-                history.addFailure(error: "Simulated transcription failure", audioFileURL: nil)
-                appState.showError("Simulated transcription failure")
-            }
         }
     }
 

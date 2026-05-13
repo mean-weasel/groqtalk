@@ -63,6 +63,7 @@
 		F7B066205963C05411DD0875 /* BackgroundPaste.swift in Sources */ = {isa = PBXBuildFile; fileRef = F22AD03CCE8B0FD7392A3D02 /* BackgroundPaste.swift */; };
 		FA64A4E97D3B14107794AA3E /* PasteTarget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B56ED3D31CEFA11C4EBCD441 /* PasteTarget.swift */; };
 		FDF502A5CA608D10D2E0080F /* LaunchAtLoginManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15C8A7CE2C08EA04B285F130 /* LaunchAtLoginManagerTests.swift */; };
+		DD1A2B3C4E5F6A7B8C9D0E2F /* UITestingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD1A2B3C4E5F6A7B8C9D0E1F /* UITestingController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,6 +143,7 @@
 		F22AD03CCE8B0FD7392A3D02 /* BackgroundPaste.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundPaste.swift; sourceTree = "<group>"; };
 		F2C48CEFD0EA9409C15CBFB0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		F61B277DF7657903E9ED14B1 /* TextInserter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextInserter.swift; sourceTree = "<group>"; };
+		DD1A2B3C4E5F6A7B8C9D0E1F /* UITestingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestingController.swift; sourceTree = "<group>"; };
 		FFB5F7B6429D574072627762 /* GroqTalkUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = GroqTalkUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -251,6 +253,7 @@
 				2C23DDB33DDC6E657B8221CA /* TranscriptionHistory.swift */,
 				78D5510A5B46F677D2AE854D /* TranscriptionService.swift */,
 				2C56C652164796A12E37BC7F /* TranscriptProcessingMode.swift */,
+				DD1A2B3C4E5F6A7B8C9D0E1F /* UITestingController.swift */,
 			);
 			path = GroqTalk;
 			sourceTree = "<group>";
@@ -406,6 +409,7 @@
 				6028D7C79AD69F49F0474F31 /* TranscriptionController.swift in Sources */,
 				F171EFD9BB5E02DA075979FB /* TranscriptionHistory.swift in Sources */,
 				2F82960B56006370D0F90FCC /* TranscriptionService.swift in Sources */,
+				DD1A2B3C4E5F6A7B8C9D0E2F /* UITestingController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
