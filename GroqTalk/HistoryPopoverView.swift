@@ -16,6 +16,8 @@ struct HistoryPopoverView: View {
     @State private var searchText = ""
     @State private var filter: Filter = .all
     @State private var isShowingClearConfirmation = false
+    @State private var isShowingDeleteOlderConfirmation = false
+    @State private var deleteOlderDays: Int = 7
     @State private var pendingDeleteRecord: TranscriptionRecord?
     @State private var selectedRecord: TranscriptionRecord?
     @State private var editedText = ""
@@ -77,6 +79,15 @@ struct HistoryPopoverView: View {
         } message: {
             Text("This removes the selected transcript and any retained failed-audio retry file from this Mac.")
         }
+        .alert("Delete Old Records?", isPresented: $isShowingDeleteOlderConfirmation) {
+            Button("Delete", role: .destructive) {
+                let cutoff = Calendar.current.date(byAdding: .day, value: -deleteOlderDays, to: Date()) ?? Date()
+                history.deleteOlderThan(cutoff)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently delete all transcriptions older than \(deleteOlderDays) days.")
+        }
         .sheet(item: $selectedRecord) { record in
             detailView(for: history.records.first { $0.id == record.id } ?? record)
         }
@@ -118,6 +129,26 @@ struct HistoryPopoverView: View {
             }
             .accessibilityIdentifier("history.clearButton")
             .disabled(history.records.isEmpty)
+
+            Menu {
+                Button("Delete Older Than 7 Days") {
+                    deleteOlderDays = 7
+                    isShowingDeleteOlderConfirmation = true
+                }
+                Button("Delete Older Than 30 Days") {
+                    deleteOlderDays = 30
+                    isShowingDeleteOlderConfirmation = true
+                }
+                Divider()
+                Button("Delete All Filtered", role: .destructive) {
+                    history.deleteFiltered(filteredRecords)
+                }
+                .disabled(filteredRecords.isEmpty)
+            } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            .accessibilityIdentifier("history.moreMenu")
+            .accessibilityLabel("More actions")
         }
         .padding(12)
         .accessibilityIdentifier("history.header")

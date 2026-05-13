@@ -355,6 +355,40 @@ final class TranscriptionHistoryTests: XCTestCase {
         XCTAssertEqual(ts, "just now")
     }
 
+    // MARK: - Bulk delete operations
+
+    func testDeleteOlderThanRemovesOldRecords() {
+        history.addSuccess(text: "old record")
+        history.deleteOlderThan(Date())
+        XCTAssertTrue(history.records.isEmpty)
+    }
+
+    func testDeleteOlderThanKeepsRecentRecords() {
+        history.addSuccess(text: "recent")
+        let cutoff = Date(timeIntervalSinceNow: -86400) // 1 day ago
+        history.deleteOlderThan(cutoff)
+        XCTAssertEqual(history.records.count, 1) // just added, newer than cutoff
+    }
+
+    func testDeleteAllByIDs() {
+        history.addSuccess(text: "keep")
+        history.addSuccess(text: "delete1")
+        history.addSuccess(text: "delete2")
+        let ids = Set(history.records.filter { $0.text != "keep" }.map(\.id))
+        history.deleteAll(ids: ids)
+        XCTAssertEqual(history.records.count, 1)
+        XCTAssertEqual(history.records.first?.text, "keep")
+    }
+
+    func testDeleteFilteredRemovesMatchingRecords() {
+        history.addSuccess(text: "success")
+        history.addFailure(error: "fail", audioFileURL: nil)
+        let failures = history.records.filter { $0.isFailure }
+        history.deleteFiltered(failures)
+        XCTAssertEqual(history.records.count, 1)
+        XCTAssertFalse(history.records.first!.isFailure)
+    }
+
     // MARK: - Outcome enum
 
     func testSuccessRecordHasNoAudioFile() {

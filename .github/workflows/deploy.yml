@@ -100,6 +100,12 @@ jobs:
           VERSION: ${{ needs.release.outputs.new_release_version }}
         run: .github/scripts/generate-appcast.sh
 
+      - name: Update Homebrew cask
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.new_release_version }}
+        run: .github/scripts/update-homebrew-cask.sh
+
       - name: Cleanup keychain
         if: always()
         run: |
@@ -156,6 +162,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: .github/scripts/generate-appcast.sh
+
+      - name: Update Homebrew cask
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: .github/scripts/update-homebrew-cask.sh
 
       - name: Cleanup keychain
         if: always()

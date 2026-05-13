@@ -172,6 +172,35 @@ final class TranscriptionHistory {
         save()
     }
 
+    /// Delete all records older than the given date.
+    func deleteOlderThan(_ date: Date) {
+        let toDelete = records.filter { $0.timestamp < date }
+        for record in toDelete {
+            if let url = record.audioFileURL {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+        records.removeAll { $0.timestamp < date }
+        save()
+    }
+
+    /// Delete all records matching the given IDs.
+    func deleteAll(ids: Set<UUID>) {
+        for record in records where ids.contains(record.id) {
+            if let url = record.audioFileURL {
+                try? FileManager.default.removeItem(at: url)
+            }
+        }
+        records.removeAll { ids.contains($0.id) }
+        save()
+    }
+
+    /// Delete records from a given array (e.g., filtered results).
+    func deleteFiltered(_ recordsToDelete: [TranscriptionRecord]) {
+        let ids = Set(recordsToDelete.map(\.id))
+        deleteAll(ids: ids)
+    }
+
     var retainedFailedAudioCount: Int {
         records.reduce(0) { count, record in
             guard let url = record.audioFileURL,

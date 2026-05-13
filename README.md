@@ -13,9 +13,12 @@ before treating the install paths below as public-ready.
 [Releases](https://github.com/neonwatty/groqtalk/releases), verify the checksum
 published with that release, open it, and drag GroqTalk into Applications.
 
-**Homebrew cask:** Planned, but not currently a verified install path. Do not
-publish `brew tap` / `brew install --cask` instructions until the tap exists,
-the cask points at a real DMG, and the cask SHA-256 has been checked.
+### Install via Homebrew
+
+```bash
+brew tap mean-weasel/groqtalk
+brew install --cask groqtalk
+```
 
 ## Setup
 
