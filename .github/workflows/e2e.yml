@@ -35,6 +35,10 @@ jobs:
             exit 0
           fi
 
+          # Set env vars in the user session so the test host process inherits them
+          launchctl setenv RUN_LIVE_GROQ_TESTS 1
+          launchctl setenv GROQ_API_KEY "$GROQ_API_KEY"
+
           xcodebuild test \
             -scheme GroqTalk \
             -configuration Debug \
