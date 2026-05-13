@@ -469,6 +469,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             hotkeyChoice: appState.hotkeyChoice,
             recordingMode: appState.recordingMode
         )
+        if appState.hotkeyChoice == .custom {
+            hotkeyMonitor.configureCustomKey(
+                keyCode: appState.customHotkeyKeyCode,
+                modifiers: appState.customHotkeyModifiers
+            )
+        }
     }
 
     // MARK: - Transcribing animation

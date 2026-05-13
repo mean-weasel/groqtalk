@@ -162,6 +162,18 @@ final class AppState {
         didSet { Self.defaults.set(hotkeyChoice.rawValue, forKey: "hotkeyChoice") }
     }
 
+    var customHotkeyKeyCode: UInt16 = 0 {
+        didSet { Self.defaults.set(Int(customHotkeyKeyCode), forKey: "customHotkeyKeyCode") }
+    }
+
+    var customHotkeyModifiers: UInt64 = 0 {
+        didSet { Self.defaults.set(customHotkeyModifiers, forKey: "customHotkeyModifiers") }
+    }
+
+    var customHotkeyLabel: String = "" {
+        didSet { Self.defaults.set(customHotkeyLabel, forKey: "customHotkeyLabel") }
+    }
+
     var selectedInputDeviceUID: String? {
         didSet {
             if let uid = selectedInputDeviceUID {
@@ -488,6 +500,9 @@ final class AppState {
                 "mockTranscriptionEnabled",
                 "recordingMode",
                 "hotkeyChoice",
+                "customHotkeyKeyCode",
+                "customHotkeyModifiers",
+                "customHotkeyLabel",
                 "language",
                 "transcriptProcessingMode",
                 "transcriptCleanupModel",
@@ -530,6 +545,9 @@ final class AppState {
         #endif
         recordingMode = HotkeyMonitor.RecordingMode(rawValue: defaults.string(forKey: "recordingMode") ?? "") ?? .hold
         hotkeyChoice = HotkeyMonitor.HotkeyChoice(rawValue: defaults.string(forKey: "hotkeyChoice") ?? "") ?? .rightCommand
+        customHotkeyKeyCode = UInt16(defaults.integer(forKey: "customHotkeyKeyCode"))
+        customHotkeyModifiers = UInt64(bitPattern: Int64(defaults.integer(forKey: "customHotkeyModifiers")))
+        customHotkeyLabel = defaults.string(forKey: "customHotkeyLabel") ?? ""
         selectedInputDeviceUID = Self.defaults.string(forKey: "selectedInputDeviceUID")
     }
 

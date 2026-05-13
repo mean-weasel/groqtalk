@@ -151,6 +151,8 @@ struct FloatingStatusView: View {
             "Right Option"
         case .globeFn:
             "Globe/Fn"
+        case .custom:
+            appState.customHotkeyLabel.isEmpty ? "Custom" : appState.customHotkeyLabel
         }
     }
 }

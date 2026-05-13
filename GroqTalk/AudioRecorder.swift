@@ -398,6 +398,8 @@ final class AudioRecorder: @unchecked Sendable {
         availableInputDevices().first { $0.uid == uid }?.id
     }
 
+    // MARK: - AudioRecording conformance
+
     enum RecordingError: Error {
         case formatConversionFailed
         case audioFormatUnavailable
@@ -411,3 +413,7 @@ final class AudioRecorder: @unchecked Sendable {
         let conversionErrorCount: Int
     }
 }
+
+// MARK: - AudioRecording conformance
+
+extension AudioRecorder: AudioRecording {}

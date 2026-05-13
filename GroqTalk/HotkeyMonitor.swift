@@ -10,16 +10,18 @@ final class HotkeyMonitor {
 
     // MARK: - Configuration
 
-    enum HotkeyChoice: String {
+    enum HotkeyChoice: String, CaseIterable {
         case rightCommand
         case rightOption
         case globeFn
+        case custom
 
         var deviceFlagBit: UInt64 {
             switch self {
             case .rightCommand: 0x10   // NX_DEVICERCMDKEYMASK
             case .rightOption:  0x40   // NX_DEVICERALTKEYMASK
             case .globeFn:      0      // Not used — Globe/Fn uses IOKit HID, never CGEvent tap
+            case .custom:       0      // Not used — custom uses key code + modifier matching
             }
         }
 
@@ -28,6 +30,7 @@ final class HotkeyMonitor {
             case .rightCommand: "Right Command"
             case .rightOption:  "Right Option"
             case .globeFn:      "Globe / Fn"
+            case .custom:       "Custom"
             }
         }
     }
@@ -39,6 +42,16 @@ final class HotkeyMonitor {
 
     private(set) var hotkeyChoice: HotkeyChoice = .rightCommand
     private(set) var recordingMode: RecordingMode = .hold
+
+    // MARK: - Custom key configuration
+
+    var customKeyCode: UInt16 = 0
+    var customModifiers: UInt64 = 0
+
+    func configureCustomKey(keyCode: UInt16, modifiers: UInt64) {
+        customKeyCode = keyCode
+        customModifiers = modifiers
+    }
 
     // MARK: - CGEvent state
 
@@ -93,11 +106,12 @@ final class HotkeyMonitor {
         toggleRecording = false
     }
 
-    // MARK: - CGEvent strategy (Right Command, Right Option)
+    // MARK: - CGEvent strategy (Right Command, Right Option, Custom)
 
     private func startCGEvent() -> Bool {
         let eventMask = (1 << CGEventType.flagsChanged.rawValue)
             | (1 << CGEventType.keyDown.rawValue)
+            | (1 << CGEventType.keyUp.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -142,7 +156,23 @@ final class HotkeyMonitor {
             return Unmanaged.passUnretained(event)
         }
 
-        if type == .flagsChanged {
+        if hotkeyChoice == .custom {
+            let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
+            if type == .keyDown && keyCode == customKeyCode {
+                let rawFlags = event.flags.rawValue
+                if customModifiers == 0 || (rawFlags & customModifiers) == customModifiers {
+                    handleKeyStateChange(pressed: true)
+                }
+            } else if type == .keyUp && keyCode == customKeyCode {
+                handleKeyStateChange(pressed: false)
+            } else if type == .keyDown && keyDown {
+                if !otherKeysDuringHold {
+                    otherKeysDuringHold = true
+                    onRecordingCancelled?()
+                    toggleRecording = false
+                }
+            }
+        } else if type == .flagsChanged {
             let rawFlags = event.flags.rawValue
             let deviceBit = hotkeyChoice.deviceFlagBit
             let targetActive = (rawFlags & deviceBit) != 0

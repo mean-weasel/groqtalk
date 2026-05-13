@@ -795,6 +795,7 @@ struct MenuBarView: View {
         case .rightCommand: "Right Command"
         case .rightOption: "Right Option"
         case .globeFn: "Globe/Fn"
+        case .custom: appState.customHotkeyLabel.isEmpty ? "Custom" : appState.customHotkeyLabel
         }
     }
 

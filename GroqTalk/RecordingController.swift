@@ -44,13 +44,13 @@ final class RecordingController {
 
     // MARK: Private state
 
-    private let audioRecorder: AudioRecorder
+    private let audioRecorder: any AudioRecording
     private let appState: AppState
     private var recordingTimer: Timer?
 
     // MARK: Init
 
-    init(audioRecorder: AudioRecorder, appState: AppState) {
+    init(audioRecorder: any AudioRecording, appState: AppState) {
         self.audioRecorder = audioRecorder
         self.appState = appState
     }

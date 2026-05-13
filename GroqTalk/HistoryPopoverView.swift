@@ -120,6 +120,7 @@ struct HistoryPopoverView: View {
             .disabled(history.records.isEmpty)
         }
         .padding(12)
+        .accessibilityIdentifier("history.header")
     }
 
     private var searchAndFilters: some View {
@@ -167,6 +168,8 @@ struct HistoryPopoverView: View {
                 .foregroundStyle(.secondary)
             Spacer()
         }
+        .accessibilityLabel("No transcriptions yet")
+        .accessibilityIdentifier("history.emptyState")
     }
 
     private var recordsList: some View {
@@ -213,6 +216,7 @@ struct HistoryPopoverView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("history.row")
         .contentShape(Rectangle())
         .onTapGesture {

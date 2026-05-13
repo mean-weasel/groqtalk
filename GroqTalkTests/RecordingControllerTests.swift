@@ -36,7 +36,7 @@ final class RecordingControllerDelegateSpy: RecordingControllerDelegate {
     }
 }
 
-// MARK: - Tests
+// MARK: - Tests (concrete AudioRecorder — kept for smoke/compat coverage)
 
 @MainActor
 final class RecordingControllerTests: XCTestCase {
@@ -154,5 +154,126 @@ final class RecordingControllerTests: XCTestCase {
 
         controller.cancelRecording()
         XCTAssertEqual(spy.didCancelCount, 2)
+    }
+}
+
+// MARK: - Tests (MockAudioRecorder — deterministic, no hardware required)
+
+@MainActor
+final class RecordingControllerMockTests: XCTestCase {
+    private var appState: AppState!
+    private var mock: MockAudioRecorder!
+    private var controller: RecordingController!
+    private var spy: RecordingControllerDelegateSpy!
+
+    override func setUpWithError() throws {
+        appState = AppState()
+        mock = MockAudioRecorder()
+        controller = RecordingController(audioRecorder: mock, appState: appState)
+        spy = RecordingControllerDelegateSpy()
+        controller.delegate = spy
+    }
+
+    override func tearDown() {
+        controller.invalidateTimers()
+        controller = nil
+        mock = nil
+        appState = nil
+        spy = nil
+    }
+
+    // MARK: - testStartRecordingCallsAudioRecorder
+
+    /// Happy path: startRecording reaches the mock, sets isRecording, and fires didStart.
+    func testStartRecordingCallsAudioRecorder() {
+        controller.startRecording()
+
+        XCTAssertEqual(mock.startRecordingCallCount, 1, "mock startRecording must be called once")
+        XCTAssertTrue(controller.isRecording)
+        XCTAssertEqual(appState.status, .recording)
+        XCTAssertEqual(spy.didStartCount, 1)
+        XCTAssertTrue(spy.didFailErrors.isEmpty)
+    }
+
+    // MARK: - testStartRecordingFailureSetsError
+
+    /// When the mock throws, the controller must catch it, leave isRecording false, and fire didFail.
+    func testStartRecordingFailureSetsError() {
+        mock.startRecordingShouldThrow = AudioRecorder.RecordingError.audioFormatUnavailable
+
+        controller.startRecording()
+
+        XCTAssertEqual(mock.startRecordingCallCount, 1)
+        XCTAssertFalse(controller.isRecording)
+        XCTAssertNotEqual(appState.status, .recording)
+        XCTAssertEqual(spy.didStartCount, 0)
+        XCTAssertEqual(spy.didFailErrors.count, 1)
+    }
+
+    // MARK: - testStopRecordingCallsDelegate
+
+    /// Happy path: stopRecording with a URL from the mock fires didStopWithURL.
+    func testStopRecordingCallsDelegate() async throws {
+        let expectedURL = URL(fileURLWithPath: "/tmp/test-audio.wav")
+        mock.stopRecordingResult = expectedURL
+
+        // Put the controller into recording state first
+        controller.startRecording()
+        XCTAssertTrue(controller.isRecording)
+
+        controller.stopRecording()
+
+        // stopRecording is async internally; yield to the run loop so the Task completes
+        try await Task.sleep(nanoseconds: 100_000_000) // 0.1 s
+
+        XCTAssertEqual(mock.stopRecordingCallCount, 1)
+        XCTAssertEqual(spy.didStopCalls.count, 1)
+        XCTAssertEqual(spy.didStopCalls.first?.url, expectedURL)
+        XCTAssertTrue(spy.didFailErrors.isEmpty)
+    }
+
+    // MARK: - testStopRecordingWithNoAudioCallsDelegate
+
+    /// When the mock returns nil, the controller must fire didStopWithNoAudio.
+    func testStopRecordingWithNoAudioCallsDelegate() async throws {
+        mock.stopRecordingResult = nil // default, but explicit for clarity
+
+        controller.startRecording()
+        controller.stopRecording()
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(mock.stopRecordingCallCount, 1)
+        XCTAssertEqual(spy.didStopWithNoAudioCount, 1)
+        XCTAssertTrue(spy.didStopCalls.isEmpty)
+        XCTAssertTrue(spy.didFailErrors.isEmpty)
+    }
+
+    // MARK: - testStopRecordingErrorCallsDelegate
+
+    /// When the mock throws during stop, the controller must fire didFail.
+    func testStopRecordingErrorCallsDelegate() async throws {
+        mock.stopRecordingShouldThrow = AudioRecorder.RecordingError.conversionFailed(errorCount: 3)
+
+        controller.startRecording()
+        controller.stopRecording()
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        XCTAssertEqual(mock.stopRecordingCallCount, 1)
+        XCTAssertTrue(spy.didStopCalls.isEmpty)
+        XCTAssertEqual(spy.didFailErrors.count, 1)
+    }
+
+    // MARK: - testCancelRecordingCallsMock
+
+    /// cancelRecording must reach the mock's cancelRecording method.
+    func testCancelRecordingCallsMock() {
+        controller.startRecording()
+        controller.cancelRecording()
+
+        XCTAssertEqual(mock.cancelRecordingCallCount, 1)
+        XCTAssertFalse(controller.isRecording)
+        XCTAssertEqual(spy.didCancelCount, 1)
     }
 }

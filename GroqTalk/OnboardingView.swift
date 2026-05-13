@@ -17,6 +17,7 @@ struct OnboardingView: View {
                         .fill(index == currentStep ? Color.accentColor : Color.secondary.opacity(0.3))
                         .frame(width: 8, height: 8)
                         .animation(.easeInOut, value: currentStep)
+                        .accessibilityLabel("Step \(index + 1) of \(steps.count)\(index == currentStep ? ", current" : "")")
                 }
             }
             .padding(.top, 24)
@@ -75,6 +76,7 @@ struct OnboardingView: View {
             .padding(.bottom, 24)
         }
         .frame(width: 420, height: 340)
+        .accessibilityIdentifier("onboarding.root")
     }
 
     // MARK: - Step Views
@@ -166,14 +168,17 @@ struct OnboardingView: View {
             Label(readyLabel, systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green)
                 .font(.caption)
+                .accessibilityLabel("Ready")
         case .needsAction(let message):
             Label(message, systemImage: "exclamationmark.circle.fill")
                 .foregroundStyle(.orange)
                 .font(.caption)
+                .accessibilityLabel("Needs attention: \(message)")
         case .unknown:
             Label("Checking...", systemImage: "circle.dotted")
                 .foregroundStyle(.secondary)
                 .font(.caption)
+                .accessibilityLabel("Checking status")
         }
     }
 }

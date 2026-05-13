@@ -30,29 +30,38 @@ struct ApiKeySetupView: View {
             SecureField("gsk_...", text: $apiKey)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 320)
+                .accessibilityLabel("Groq API Key")
+                .accessibilityIdentifier("apiKeySetup.apiKeyField")
 
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)
                     .foregroundStyle(.red)
+                    .accessibilityLabel("Error: \(errorMessage)")
+                    .accessibilityIdentifier("apiKeySetup.errorMessage")
             }
 
             if saved {
                 Label("API key saved", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.caption)
+                    .accessibilityLabel("API key is valid")
+                    .accessibilityIdentifier("apiKeySetup.validIndicator")
             }
 
             if isValidating {
                 ProgressView("Checking key...")
                     .controlSize(.small)
                     .font(.caption)
+                    .accessibilityLabel("Validating API key")
+                    .accessibilityIdentifier("apiKeySetup.progress")
             }
 
             HStack {
                 if let groqKeysURL = URL(string: "https://console.groq.com/keys") {
                     Link("Get API Key", destination: groqKeysURL)
                         .font(.caption)
+                        .accessibilityIdentifier("apiKeySetup.getKeyLink")
                 }
 
                 Spacer()
@@ -61,6 +70,7 @@ struct ApiKeySetupView: View {
                     Button("Save Anyway") {
                         saveKeyWithoutValidation()
                     }
+                    .accessibilityIdentifier("apiKeySetup.saveAnywayButton")
                 }
 
                 Button(isValidating ? "Checking..." : "Save & Test") {
@@ -68,10 +78,12 @@ struct ApiKeySetupView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(apiKey.isEmpty || isValidating)
+                .accessibilityIdentifier("apiKeySetup.saveTestButton")
             }
         }
         .padding(24)
         .frame(width: 380)
+        .accessibilityIdentifier("apiKeySetup.root")
         .onAppear {
             if let existing = KeychainHelper.readApiKey() {
                 apiKey = existing

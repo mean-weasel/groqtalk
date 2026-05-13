@@ -93,12 +93,21 @@ struct SettingsView: View {
     private var recordingSettings: some View {
         Form {
             Picker("Hotkey", selection: $appState.hotkeyChoice) {
-                Text("Right Command").tag(HotkeyMonitor.HotkeyChoice.rightCommand)
-                Text("Right Option").tag(HotkeyMonitor.HotkeyChoice.rightOption)
-                Text("Globe / Fn").tag(HotkeyMonitor.HotkeyChoice.globeFn)
+                ForEach(HotkeyMonitor.HotkeyChoice.allCases, id: \.self) { choice in
+                    Text(choice.label).tag(choice)
+                }
             }
             .accessibilityIdentifier("settings.hotkeyPicker")
             .onChange(of: appState.hotkeyChoice) { _, _ in onHotkeyChanged?() }
+
+            if appState.hotkeyChoice == .custom {
+                KeyRecorderView(
+                    keyCode: $appState.customHotkeyKeyCode,
+                    modifiers: $appState.customHotkeyModifiers,
+                    label: $appState.customHotkeyLabel
+                )
+                .onChange(of: appState.customHotkeyKeyCode) { _, _ in onHotkeyChanged?() }
+            }
 
             Picker("Mode", selection: $appState.recordingMode) {
                 Text("Hold to record").tag(HotkeyMonitor.RecordingMode.hold)
