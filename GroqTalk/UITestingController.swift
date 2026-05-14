@@ -35,6 +35,7 @@ final class UITestingController {
     private let onRunSetupCheck: () -> Void
     private let onRetryRecord: (TranscriptionRecord) -> Void
     private let onPasteText: (String) -> Void
+    private let onReplaceRecordingController: (RecordingController) -> Void
 
     // MARK: - Window storage
 
@@ -60,7 +61,8 @@ final class UITestingController {
         onOpenMicrophone: @escaping () -> Void,
         onRunSetupCheck: @escaping () -> Void,
         onRetryRecord: @escaping (TranscriptionRecord) -> Void,
-        onPasteText: @escaping (String) -> Void
+        onPasteText: @escaping (String) -> Void,
+        onReplaceRecordingController: @escaping (RecordingController) -> Void
     ) {
         self.appState = appState
         self.history = history
@@ -78,6 +80,7 @@ final class UITestingController {
         self.onRunSetupCheck = onRunSetupCheck
         self.onRetryRecord = onRetryRecord
         self.onPasteText = onPasteText
+        self.onReplaceRecordingController = onReplaceRecordingController
     }
 
     // MARK: - Configuration entry points

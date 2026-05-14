@@ -29,6 +29,7 @@
 		4EC94F8FD46EA59C1D29DBAA /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C04ACF5F04D33BF75D666AD /* MenuBarView.swift */; };
 		59670AD3B35A6E862511D3B5 /* HistoryPopoverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B60032CCB98D3746C131217 /* HistoryPopoverTests.swift */; };
 		6028D7C79AD69F49F0474F31 /* TranscriptionController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86442051E2DC80E412022354 /* TranscriptionController.swift */; };
+		EE11223344556677889900CC /* E2EAudioStub.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE11223344556677889900AA /* E2EAudioStub.swift */; };
 		667DAE95FBD5D705DAB0040E /* DiagnosticLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BE6B85DF059FB4B645DFB8C /* DiagnosticLog.swift */; };
 		68CA2C950FA6990F920B6F0E /* SoundPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE0224008DA333B2B45AA9B3 /* SoundPlayer.swift */; };
 		6C6794F893BED2FBEA21814B /* RecordingFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F0B55225C42E812C09E4DB /* RecordingFlowTests.swift */; };
@@ -92,6 +93,7 @@
 		0AF5C3DB12AFBA88ECBA175F /* GroqTalkUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroqTalkUITests.swift; sourceTree = "<group>"; };
 		0B60032CCB98D3746C131217 /* HistoryPopoverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryPopoverTests.swift; sourceTree = "<group>"; };
 		0BE6B85DF059FB4B645DFB8C /* DiagnosticLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticLog.swift; sourceTree = "<group>"; };
+		EE11223344556677889900AA /* E2EAudioStub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = E2EAudioStub.swift; sourceTree = "<group>"; };
 		13CB29E436E5E3465167230D /* ApiKeySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApiKeySetupView.swift; sourceTree = "<group>"; };
 		141E73C78BEF8A8E08F3B838 /* PasteQueueTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasteQueueTests.swift; sourceTree = "<group>"; };
 		15C8A7CE2C08EA04B285F130 /* LaunchAtLoginManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManagerTests.swift; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 				AA11223344556677889900AA /* AudioRecording.swift */,
 				F22AD03CCE8B0FD7392A3D02 /* BackgroundPaste.swift */,
 				0BE6B85DF059FB4B645DFB8C /* DiagnosticLog.swift */,
+				EE11223344556677889900AA /* E2EAudioStub.swift */,
 				415BD3E9C48EE3DFC91BEBAC /* FloatingStatusView.swift */,
 				47F67C46D628784D812AC1C1 /* GroqTalk.entitlements */,
 				02AB21B35C638DC3AB2379B3 /* GroqTalkApp.swift */,
@@ -391,6 +394,7 @@
 				AA11223344556677889900CC /* AudioRecording.swift in Sources */,
 				F7B066205963C05411DD0875 /* BackgroundPaste.swift in Sources */,
 				667DAE95FBD5D705DAB0040E /* DiagnosticLog.swift in Sources */,
+				EE11223344556677889900CC /* E2EAudioStub.swift in Sources */,
 				C9B86E4CF5B41FC449096567 /* FloatingStatusView.swift in Sources */,
 				F34BB165ADDE82F7DA185B8D /* GroqTalkApp.swift in Sources */,
 				C0482BD31D4BE0179B102CAC /* HistoryPopoverView.swift in Sources */,

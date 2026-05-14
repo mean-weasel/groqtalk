@@ -189,7 +189,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onOpenMicrophone: { [weak self] in self?.openMicrophoneSettings() },
             onRunSetupCheck: { [weak self] in self?.runSetupCheck() },
             onRetryRecord: { [weak self] record in self?.retryRecord(record) },
-            onPasteText: { [weak self] text in self?.paste(text: text) }
+            onPasteText: { [weak self] text in self?.paste(text: text) },
+            onReplaceRecordingController: { [weak self] controller in
+                self?.replaceRecordingController(with: controller)
+            }
         )
         uiTestingController = uiTestingCtrl
         uiTestingCtrl.configureUITestingIfNeeded()
@@ -394,6 +397,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func cancelRecordingFromControl() {
         recordingController.cancelRecording()
+    }
+
+    func replaceRecordingController(with newController: RecordingController) {
+        recordingController.invalidateTimers()
+        recordingController = newController
+        recordingController.delegate = self
     }
 
     // MARK: - Wiring
