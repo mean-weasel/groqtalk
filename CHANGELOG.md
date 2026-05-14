@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/mean-weasel/groqtalk/compare/v1.10.2...v1.11.0) (2026-05-14)
+
+
+### Features
+
+* add E2E transcription UI test with real Groq API ([#73](https://github.com/mean-weasel/groqtalk/issues/73)) ([e6fd900](https://github.com/mean-weasel/groqtalk/commit/e6fd900c91f7110be0408aa2d22f973dae14ae38))
+* E2E transcription test infrastructure (stub + controller swap) ([#72](https://github.com/mean-weasel/groqtalk/issues/72)) ([011ecda](https://github.com/mean-weasel/groqtalk/commit/011ecdaa717dd0748bc8d19eca5989c2bea1a4d8)), closes [#if](https://github.com/mean-weasel/groqtalk/issues/if)
+
 ## [1.10.2](https://github.com/mean-weasel/groqtalk/compare/v1.10.1...v1.10.2) (2026-05-14)
 
 
