@@ -175,7 +175,7 @@ final class TranscriptionControllerTests: XCTestCase {
 
     // MARK: - retryTranscription with missing audio file
 
-    func testRetryTranscriptionWithNoAudioURLOnRecordDoesNothing() async {
+    func testRetryTranscriptionWithNoAudioURLNotifiesDelegateOfFailure() async {
         let record = TranscriptionRecord(
             id: UUID(),
             timestamp: Date(),
@@ -183,9 +183,10 @@ final class TranscriptionControllerTests: XCTestCase {
         )
         await controller.retryTranscription(record: record)
 
-        XCTAssertEqual(spy.didStartCalls.count, 0)
-        XCTAssertEqual(spy.didTranscribeCalls.count, 0)
-        XCTAssertEqual(spy.didFailCalls.count, 0)
+        XCTAssertEqual(spy.didStartCalls.count, 0, "Should not start transcription")
+        XCTAssertEqual(spy.didTranscribeCalls.count, 0, "Should not produce a transcript")
+        XCTAssertEqual(spy.didFailCalls.count, 1, "Should notify delegate of failure")
+        XCTAssertEqual(spy.didFailCalls.first?.errorMessage, "Recording no longer available for retry")
     }
 
     // MARK: - Delegate is notified of didStart before outcome
