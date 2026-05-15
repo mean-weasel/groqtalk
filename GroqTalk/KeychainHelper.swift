@@ -19,12 +19,18 @@ enum KeychainHelper {
         #endif
     }
 
-    private static var account: String {
+    private static func account(for providerID: TranscriptionProviderID) -> String {
         #if DEBUG
-        accountOverride ?? defaultAccount
+        let base = accountOverride ?? defaultAccount
         #else
-        defaultAccount
+        let base = defaultAccount
         #endif
+        switch providerID {
+        case .groq:
+            return base
+        case .openAICompatible:
+            return "\(base).\(providerID.rawValue)"
+        }
     }
 
     private static var legacyPlaintextStorageURL: URL? {
@@ -42,36 +48,49 @@ enum KeychainHelper {
     }
 
     static func save(apiKey: String) throws {
+        try save(apiKey: apiKey, for: .groq)
+    }
+
+    static func save(apiKey: String, for providerID: TranscriptionProviderID) throws {
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-        try saveToKeychain(apiKey: trimmed)
-        if let legacyURL = legacyPlaintextStorageURL {
+        try saveToKeychain(apiKey: trimmed, for: providerID)
+        if providerID == .groq, let legacyURL = legacyPlaintextStorageURL {
             try? FileManager.default.removeItem(at: legacyURL)
         }
     }
 
     static func readApiKey() -> String? {
-        if let key = readFromKeychain() {
-            if let legacyURL = legacyPlaintextStorageURL {
+        readApiKey(for: .groq)
+    }
+
+    static func readApiKey(for providerID: TranscriptionProviderID) -> String? {
+        if let key = readFromKeychain(for: providerID) {
+            if providerID == .groq, let legacyURL = legacyPlaintextStorageURL {
                 try? FileManager.default.removeItem(at: legacyURL)
             }
             return key
         }
+        guard providerID == .groq else { return nil }
         return migrateLegacyPlaintextFile()
     }
 
     static func delete() {
-        deleteFromKeychain()
-        if let legacyURL = legacyPlaintextStorageURL {
+        delete(for: .groq)
+    }
+
+    static func delete(for providerID: TranscriptionProviderID) {
+        deleteFromKeychain(for: providerID)
+        if providerID == .groq, let legacyURL = legacyPlaintextStorageURL {
             try? FileManager.default.removeItem(at: legacyURL)
         }
     }
 
     // MARK: - Keychain storage
 
-    private static func saveToKeychain(apiKey: String) throws {
+    private static func saveToKeychain(apiKey: String, for providerID: TranscriptionProviderID = .groq) throws {
         let data = Data(apiKey.utf8)
-        let query = baseQuery()
+        let query = baseQuery(for: providerID)
         let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
@@ -91,8 +110,8 @@ enum KeychainHelper {
         throw KeychainError.unhandledStatus(addStatus)
     }
 
-    private static func readFromKeychain() -> String? {
-        var query = baseQuery()
+    private static func readFromKeychain(for providerID: TranscriptionProviderID = .groq) -> String? {
+        var query = baseQuery(for: providerID)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
 
@@ -108,15 +127,15 @@ enum KeychainHelper {
         return key
     }
 
-    private static func deleteFromKeychain() {
-        SecItemDelete(baseQuery() as CFDictionary)
+    private static func deleteFromKeychain(for providerID: TranscriptionProviderID = .groq) {
+        SecItemDelete(baseQuery(for: providerID) as CFDictionary)
     }
 
-    private static func baseQuery() -> [String: Any] {
+    private static func baseQuery(for providerID: TranscriptionProviderID = .groq) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
-            kSecAttrAccount as String: account
+            kSecAttrAccount as String: account(for: providerID)
         ]
     }
 
@@ -135,7 +154,7 @@ enum KeychainHelper {
         }
 
         do {
-            try saveToKeychain(apiKey: key)
+            try saveToKeychain(apiKey: key, for: .groq)
             try? FileManager.default.removeItem(at: legacyURL)
             return key
         } catch {

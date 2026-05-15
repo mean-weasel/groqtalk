@@ -66,12 +66,13 @@ final class TranscriptionController {
         #endif
         DiagnosticLog.write("TranscriptionController: mock=\(useMockTranscription)")
 
+        let provider = appState.selectedTranscriptionProvider
         let apiKey: String?
         if useMockTranscription {
             apiKey = nil
         } else {
             let resolvedKey = resolveApiKey()
-            guard let key = resolvedKey else {
+            if provider.requiresAPIKey && resolvedKey == nil {
                 let noKeyError = NoApiKeyError()
                 delegate?.transcriptionController(
                     self,
@@ -82,35 +83,35 @@ final class TranscriptionController {
                 )
                 return
             }
-            apiKey = key
+            apiKey = resolvedKey
         }
 
         do {
             let text: String
             var cleanupFailed = false
+            let service = transcriptionService.withProvider(provider)
 
             if useMockTranscription {
                 appState.transcriptionStage = .transcribingAudio
                 try await Task.sleep(for: .seconds(2))
                 text = "Mock transcription at \(Date().formatted(date: .omitted, time: .standard))"
-            } else if let apiKey {
+            } else {
                 appState.transcriptionStage = .transcribingAudio
-                let rawText = try await transcriptionService.transcribe(
+                let rawText = try await service.transcribe(
                     audioFileURL: audioURL,
                     apiKey: apiKey,
-                    model: appState.selectedModel,
+                    model: appState.selectedTranscriptionModel,
                     format: format,
                     language: appState.selectedLanguage
                 )
                 let processed = await processTranscriptOrRaw(
                     rawText: rawText,
                     apiKey: apiKey,
+                    service: service,
                     context: "transcription"
                 )
                 text = processed.text
                 cleanupFailed = processed.cleanupFailed
-            } else {
-                throw TranscriptionService.TranscriptionError.invalidResponse
             }
 
             DiagnosticLog.write("TranscriptionController: success textLength=\(text.count) cleanupFailed=\(cleanupFailed)")
@@ -139,7 +140,9 @@ final class TranscriptionController {
         let format = AudioFormat(rawValue: audioURL.pathExtension) ?? appState.selectedAudioFormat
         DiagnosticLog.write("TranscriptionController.retryTranscription: url=\(audioURL.lastPathComponent)")
 
-        guard let apiKey = KeychainHelper.readApiKey() else {
+        let provider = appState.selectedTranscriptionProvider
+        let apiKey = KeychainHelper.readApiKey(for: appState.selectedTranscriptionProviderID)
+        if provider.requiresAPIKey && apiKey == nil {
             let noKeyError = NoApiKeyError()
             delegate?.transcriptionController(
                 self,
@@ -152,17 +155,19 @@ final class TranscriptionController {
         }
 
         do {
+            let service = transcriptionService.withProvider(provider)
             appState.transcriptionStage = .transcribingAudio
-            let rawText = try await transcriptionService.transcribe(
+            let rawText = try await service.transcribe(
                 audioFileURL: audioURL,
                 apiKey: apiKey,
-                model: appState.selectedModel,
+                model: appState.selectedTranscriptionModel,
                 format: format,
                 language: appState.selectedLanguage
             )
             let processed = await processTranscriptOrRaw(
                 rawText: rawText,
                 apiKey: apiKey,
+                service: service,
                 context: "retry"
             )
             DiagnosticLog.write("TranscriptionController.retryTranscription: success cleanupFailed=\(processed.cleanupFailed)")
@@ -187,7 +192,7 @@ final class TranscriptionController {
             return envKey
         }
         #endif
-        return KeychainHelper.readApiKey()
+        return KeychainHelper.readApiKey(for: appState.selectedTranscriptionProviderID)
     }
 
     // MARK: - Internal helpers
@@ -195,16 +200,23 @@ final class TranscriptionController {
     /// Apply transcript processing mode (cleanup/raw). Returns (text, cleanupFailed).
     func processTranscriptOrRaw(
         rawText: String,
-        apiKey: String,
+        apiKey: String?,
+        service: TranscriptionService? = nil,
         context: String
     ) async -> (text: String, cleanupFailed: Bool) {
         guard appState.transcriptProcessingMode != .raw else {
             return (rawText, false)
         }
 
+        let service = service ?? transcriptionService
+        guard appState.selectedTranscriptionProvider.supportsTranscriptProcessing else {
+            DiagnosticLog.write("\(context): transcript processing skipped for provider=\(appState.selectedTranscriptionProvider.id.rawValue)")
+            return (rawText, true)
+        }
+
         appState.transcriptionStage = .cleaningTranscript
         do {
-            let text = try await transcriptionService.processTranscript(
+            let text = try await service.processTranscript(
                 rawText,
                 apiKey: apiKey,
                 mode: appState.transcriptProcessingMode,

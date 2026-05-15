@@ -18,6 +18,7 @@ final class KeychainHelperTests: XCTestCase {
 
     override func tearDown() {
         KeychainHelper.delete()
+        KeychainHelper.delete(for: .openAICompatible)
         KeychainHelper.storageDirectoryOverride = nil
         KeychainHelper.serviceOverride = nil
         KeychainHelper.accountOverride = nil
@@ -88,5 +89,32 @@ final class KeychainHelperTests: XCTestCase {
 
         XCTAssertEqual(KeychainHelper.readApiKey(), "keychain-key")
         XCTAssertFalse(FileManager.default.fileExists(atPath: legacyPlaintextURL.path))
+    }
+
+    func testProviderScopedKeysDoNotOverwriteEachOther() throws {
+        try KeychainHelper.save(apiKey: "groq-key", for: .groq)
+        try KeychainHelper.save(apiKey: "local-key", for: .openAICompatible)
+
+        XCTAssertEqual(KeychainHelper.readApiKey(for: .groq), "groq-key")
+        XCTAssertEqual(KeychainHelper.readApiKey(for: .openAICompatible), "local-key")
+        XCTAssertEqual(KeychainHelper.readApiKey(), "groq-key")
+    }
+
+    func testDeletingCustomProviderKeyDoesNotDeleteGroqKey() throws {
+        try KeychainHelper.save(apiKey: "groq-key", for: .groq)
+        try KeychainHelper.save(apiKey: "local-key", for: .openAICompatible)
+
+        KeychainHelper.delete(for: .openAICompatible)
+
+        XCTAssertEqual(KeychainHelper.readApiKey(for: .groq), "groq-key")
+        XCTAssertNil(KeychainHelper.readApiKey(for: .openAICompatible))
+    }
+
+    func testLegacyPlaintextMigrationOnlyAppliesToGroqProvider() throws {
+        try Data("legacy-key\n".utf8).write(to: legacyPlaintextURL)
+
+        XCTAssertNil(KeychainHelper.readApiKey(for: .openAICompatible))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: legacyPlaintextURL.path))
+        XCTAssertEqual(KeychainHelper.readApiKey(for: .groq), "legacy-key")
     }
 }

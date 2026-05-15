@@ -111,6 +111,18 @@ final class AppState {
         didSet { Self.defaults.set(selectedModel, forKey: "whisperModel") }
     }
 
+    var selectedTranscriptionProviderID: TranscriptionProviderID = .groq {
+        didSet { Self.defaults.set(selectedTranscriptionProviderID.rawValue, forKey: "transcriptionProvider") }
+    }
+
+    var customTranscriptionBaseURL: String = "http://127.0.0.1:8080/v1" {
+        didSet { Self.defaults.set(customTranscriptionBaseURL, forKey: "customTranscriptionBaseURL") }
+    }
+
+    var customTranscriptionModel: String = "whisper-1" {
+        didSet { Self.defaults.set(customTranscriptionModel, forKey: "customTranscriptionModel") }
+    }
+
     var selectedAudioFormat: AudioFormat = .m4a {
         didSet { Self.defaults.set(selectedAudioFormat.rawValue, forKey: "audioFormat") }
     }
@@ -184,7 +196,38 @@ final class AppState {
         }
     }
 
-    var hasApiKey: Bool { KeychainHelper.readApiKey() != nil }
+    var hasApiKey: Bool { KeychainHelper.readApiKey(for: selectedTranscriptionProviderID) != nil }
+
+    var selectedTranscriptionProvider: TranscriptionProvider {
+        switch selectedTranscriptionProviderID {
+        case .groq:
+            var provider = TranscriptionProvider.groq
+            provider = TranscriptionProvider(
+                id: provider.id,
+                displayName: provider.displayName,
+                baseURL: provider.baseURL,
+                transcriptionModel: selectedModel,
+                requiresAPIKey: provider.requiresAPIKey,
+                supportsModelValidation: provider.supportsModelValidation,
+                supportsTranscriptProcessing: provider.supportsTranscriptProcessing
+            )
+            return provider
+        case .openAICompatible:
+            let fallback = URL(string: "http://127.0.0.1:8080/v1")!
+            let baseURL = URL(string: customTranscriptionBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)) ?? fallback
+            return .openAICompatible(
+                baseURL: baseURL,
+                model: customTranscriptionModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "whisper-1"
+                    : customTranscriptionModel,
+                requiresAPIKey: false
+            )
+        }
+    }
+
+    var selectedTranscriptionModel: String {
+        selectedTranscriptionProvider.transcriptionModel
+    }
 
     var isSetupReady: Bool {
         accessibilityState == .ready
@@ -460,9 +503,9 @@ final class AppState {
     private var transcriptionDetail: String {
         switch transcriptProcessingMode {
         case .raw:
-            "Groq · \(selectedModel)"
+            "\(selectedTranscriptionProvider.displayName) · \(selectedTranscriptionModel)"
         case .cleanUp, .rewriteClearly:
-            "Groq · cleanup next"
+            "\(selectedTranscriptionProvider.displayName) · cleanup next"
         }
     }
 
@@ -497,7 +540,10 @@ final class AppState {
         if ProcessInfo.processInfo.arguments.contains("--reset-defaults") {
             for key in [
                 "soundEffectsEnabled",
+                "transcriptionProvider",
                 "whisperModel",
+                "customTranscriptionBaseURL",
+                "customTranscriptionModel",
                 "audioFormat",
                 "keepOnClipboard",
                 "showLiveFeedbackHUD",
@@ -521,7 +567,10 @@ final class AppState {
 
         defaults.register(defaults: [
             "soundEffectsEnabled": true,
+            "transcriptionProvider": TranscriptionProviderID.groq.rawValue,
             "whisperModel": "whisper-large-v3-turbo",
+            "customTranscriptionBaseURL": "http://127.0.0.1:8080/v1",
+            "customTranscriptionModel": "whisper-1",
             "audioFormat": "m4a",
             "keepOnClipboard": false,
             "showFloatingStatus": false,
@@ -538,7 +587,10 @@ final class AppState {
         // Load persisted values into stored properties.
         // didSet does NOT fire during init, so no redundant writes.
         soundEffectsEnabled = defaults.bool(forKey: "soundEffectsEnabled")
+        selectedTranscriptionProviderID = TranscriptionProviderID(rawValue: defaults.string(forKey: "transcriptionProvider") ?? "") ?? .groq
         selectedModel = defaults.string(forKey: "whisperModel") ?? "whisper-large-v3-turbo"
+        customTranscriptionBaseURL = defaults.string(forKey: "customTranscriptionBaseURL") ?? "http://127.0.0.1:8080/v1"
+        customTranscriptionModel = defaults.string(forKey: "customTranscriptionModel") ?? "whisper-1"
         selectedAudioFormat = AudioFormat(rawValue: defaults.string(forKey: "audioFormat") ?? "") ?? .m4a
         selectedLanguage = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
         transcriptProcessingMode = TranscriptProcessingMode(rawValue: defaults.string(forKey: "transcriptProcessingMode") ?? "") ?? .raw
@@ -609,7 +661,11 @@ final class AppState {
     }
 
     func refreshApiKeyState() {
-        apiKeyState = hasApiKey ? .ready : .needsAction("Add Groq API key")
+        if selectedTranscriptionProvider.requiresAPIKey {
+            apiKeyState = hasApiKey ? .ready : .needsAction("Add \(selectedTranscriptionProvider.displayName) API key")
+        } else {
+            apiKeyState = .ready
+        }
     }
 
     func startSetupCheck() {

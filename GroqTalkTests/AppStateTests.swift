@@ -35,6 +35,9 @@ final class AppStateTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: "transcriptProcessingMode")
         UserDefaults.standard.removeObject(forKey: "transcriptCleanupModel")
         UserDefaults.standard.removeObject(forKey: "selectedInputDeviceUID")
+        UserDefaults.standard.removeObject(forKey: "transcriptionProvider")
+        UserDefaults.standard.removeObject(forKey: "customTranscriptionBaseURL")
+        UserDefaults.standard.removeObject(forKey: "customTranscriptionModel")
     }
 
     private func markSetupReady(_ state: AppState) {
@@ -189,6 +192,15 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(state.apiKeyState, .ready)
     }
 
+    func testRefreshApiKeyStateAllowsCustomProviderWithoutKey() {
+        let state = AppState()
+        state.selectedTranscriptionProviderID = .openAICompatible
+
+        state.refreshApiKeyState()
+
+        XCTAssertEqual(state.apiKeyState, .ready)
+    }
+
     func testSetupCheckStateTransitions() {
         let state = AppState()
 
@@ -301,6 +313,23 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(presentation.title, "Transcribing")
         XCTAssertEqual(presentation.detail, "Groq · whisper-large-v3-turbo")
         XCTAssertEqual(presentation.tone, .progress)
+    }
+
+    func testTranscribingSessionPresentationUsesSelectedProviderNameAndModel() {
+        let state = AppState()
+        state.selectedTranscriptionProviderID = .openAICompatible
+        state.customTranscriptionBaseURL = "http://127.0.0.1:8080/v1"
+        state.customTranscriptionModel = "whisper-1"
+        state.transcriptionStage = .transcribingAudio
+        state.setStatus(.transcribing)
+
+        let presentation = state.sessionPresentation(
+            hotkeyLabel: "Right Command",
+            hasRetryableFailure: false,
+            hasLastSuccess: false
+        )
+
+        XCTAssertEqual(presentation.detail, "OpenAI-compatible · whisper-1")
     }
 
     func testCleaningSessionPresentationShowsCleanupModel() {
@@ -821,6 +850,32 @@ final class AppStateTests: XCTestCase {
         let state = AppState()
         XCTAssertEqual(state.transcriptProcessingMode, .raw)
         XCTAssertEqual(state.transcriptCleanupModel, "llama-3.3-70b-versatile")
+    }
+
+    func testDefaultTranscriptionProviderIsGroq() {
+        let state = AppState()
+        let provider = state.selectedTranscriptionProvider
+
+        XCTAssertEqual(state.selectedTranscriptionProviderID, .groq)
+        XCTAssertEqual(provider.id, .groq)
+        XCTAssertEqual(provider.displayName, "Groq")
+        XCTAssertEqual(provider.transcriptionModel, "whisper-large-v3-turbo")
+        XCTAssertEqual(provider.audioTranscriptionsEndpoint.absoluteString, "https://api.groq.com/openai/v1/audio/transcriptions")
+    }
+
+    func testCustomOpenAICompatibleProviderPersists() {
+        let state = AppState()
+        state.selectedTranscriptionProviderID = .openAICompatible
+        state.customTranscriptionBaseURL = "http://127.0.0.1:8080/v1"
+        state.customTranscriptionModel = "whisper-1"
+
+        let reloaded = AppState()
+        let provider = reloaded.selectedTranscriptionProvider
+
+        XCTAssertEqual(reloaded.selectedTranscriptionProviderID, .openAICompatible)
+        XCTAssertEqual(provider.id, .openAICompatible)
+        XCTAssertEqual(provider.transcriptionModel, "whisper-1")
+        XCTAssertEqual(provider.audioTranscriptionsEndpoint.absoluteString, "http://127.0.0.1:8080/v1/audio/transcriptions")
     }
 
     func testSetTranscriptProcessingMode() {

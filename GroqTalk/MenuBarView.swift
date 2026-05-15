@@ -43,6 +43,12 @@ struct MenuBarView: View {
         )
     }
 
+    private var apiKeyRecoveryDetail: String {
+        appState.selectedTranscriptionProvider.requiresAPIKey
+            ? "Add your \(appState.selectedTranscriptionProvider.displayName) API key to enable transcription."
+            : "API key optional for this provider."
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             toolbarActions
@@ -193,10 +199,10 @@ struct MenuBarView: View {
 
                 settingsSection("Transcription") {
                     permissionRow(
-                        title: "Groq API key",
+                        title: "\(appState.selectedTranscriptionProvider.displayName) API key",
                         state: appState.apiKeyState,
                         actionTitle: "Change",
-                        recoveryDetail: "Add your Groq API key to enable transcription.",
+                        recoveryDetail: apiKeyRecoveryDetail,
                         action: { openWindow(id: "api-key-setup") }
                     )
                     Button {
@@ -206,11 +212,27 @@ struct MenuBarView: View {
                     }
                     .accessibilityIdentifier("menu.settings.changeApiKeyButton")
 
-                    Picker("Whisper model", selection: $appState.selectedModel) {
-                        Text("Large V3 Turbo").tag("whisper-large-v3-turbo")
-                        Text("Large V3").tag("whisper-large-v3")
+                    Picker("Provider", selection: $appState.selectedTranscriptionProviderID) {
+                        Text("Groq").tag(TranscriptionProviderID.groq)
+                        Text("OpenAI-compatible").tag(TranscriptionProviderID.openAICompatible)
                     }
-                    .accessibilityIdentifier("menu.settings.whisperModelPicker")
+                    .accessibilityIdentifier("menu.settings.transcriptionProviderPicker")
+                    .onChange(of: appState.selectedTranscriptionProviderID) { _, _ in
+                        appState.refreshApiKeyState()
+                    }
+
+                    if appState.selectedTranscriptionProviderID == .groq {
+                        Picker("Whisper model", selection: $appState.selectedModel) {
+                            Text("Large V3 Turbo").tag("whisper-large-v3-turbo")
+                            Text("Large V3").tag("whisper-large-v3")
+                        }
+                        .accessibilityIdentifier("menu.settings.whisperModelPicker")
+                    } else {
+                        TextField("Base URL", text: $appState.customTranscriptionBaseURL)
+                            .accessibilityIdentifier("menu.settings.customTranscriptionBaseURL")
+                        TextField("Model", text: $appState.customTranscriptionModel)
+                            .accessibilityIdentifier("menu.settings.customTranscriptionModel")
+                    }
 
                     Picker("After transcription", selection: $appState.transcriptProcessingMode) {
                         ForEach(TranscriptProcessingMode.allCases) { mode in

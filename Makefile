@@ -23,7 +23,7 @@ endif
 BUILD_DIR := $(shell xcodebuild -scheme $(SCHEME) -configuration $(CONFIG) -destination 'platform=macOS' -showBuildSettings 2>/dev/null | grep -m1 BUILT_PRODUCTS_DIR | awk '{print $$NF}')
 APP_PATH := $(BUILD_DIR)/$(APP_NAME).app
 
-.PHONY: setup-local-signing setup-release-secrets enable-xctest-developer-mode build unlock-local-signing-keychain run start stop restart install uninstall clean test test-ui test-cross-app test-app-smoke test-paste-real qa-paste test-cleanup-quality qa qa-ci qa-local
+.PHONY: setup-local-signing setup-release-secrets enable-xctest-developer-mode build build-warnings-as-errors unlock-local-signing-keychain run start stop restart install uninstall clean test test-ui test-cross-app test-app-smoke test-paste-real qa-paste test-cleanup-quality qa qa-ci qa-local
 
 setup-local-signing:
 	LOCAL_SIGN_KEYCHAIN_PASSWORD="$(LOCAL_SIGN_KEYCHAIN_PASSWORD)" scripts/setup-local-signing.sh
@@ -46,6 +46,13 @@ build: unlock-local-signing-keychain
 	@if [ -d "$(APP_PATH)" ]; then find "$(APP_PATH)" -name '*.cstemp*' -delete; fi
 	@tmp=$$(mktemp); \
 	xcodebuild -scheme $(SCHEME) -configuration $(CONFIG) -destination 'platform=macOS' $(SIGNING_FLAGS) build >"$$tmp" 2>&1; \
+	status=$$?; tail -3 "$$tmp"; \
+	if ! grep -q '\*\* BUILD SUCCEEDED \*\*' "$$tmp"; then status=1; fi; \
+	rm -f "$$tmp"; exit $$status
+
+build-warnings-as-errors:
+	@tmp=$$(mktemp); \
+	xcodebuild build -scheme $(SCHEME) -configuration $(CONFIG) -destination 'platform=macOS' OTHER_SWIFT_FLAGS='-warnings-as-errors' >"$$tmp" 2>&1; \
 	status=$$?; tail -3 "$$tmp"; \
 	if ! grep -q '\*\* BUILD SUCCEEDED \*\*' "$$tmp"; then status=1; fi; \
 	rm -f "$$tmp"; exit $$status
@@ -106,6 +113,9 @@ test-cleanup-quality:
 	swift tests/test_cleanup_quality.swift
 
 qa-ci:
+	@echo "=== Warnings-as-errors build ==="
+	$(MAKE) build-warnings-as-errors
+	@echo ""
 	@echo "=== Unit tests ==="
 	$(MAKE) test
 	@echo ""

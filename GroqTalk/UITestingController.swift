@@ -138,6 +138,7 @@ final class UITestingController {
     func configureE2ETranscribeIfNeeded() {
         #if DEBUG
         guard ProcessInfo.processInfo.arguments.contains("--e2e-transcribe") else { return }
+        configureE2EProviderOverrides()
 
         let wavURL: URL
         if let envPath = ProcessInfo.processInfo.environment["E2E_WAV_PATH"],
@@ -167,6 +168,27 @@ final class UITestingController {
             onStopRecording()
         }
         #endif
+    }
+
+    private func configureE2EProviderOverrides() {
+        let env = ProcessInfo.processInfo.environment
+        if env["E2E_TRANSCRIPTION_PROVIDER"] == TranscriptionProviderID.openAICompatible.rawValue {
+            appState.selectedTranscriptionProviderID = .openAICompatible
+            appState.customTranscriptionBaseURL = env["E2E_TRANSCRIPTION_BASE_URL"] ?? appState.customTranscriptionBaseURL
+            appState.customTranscriptionModel = env["E2E_TRANSCRIPTION_MODEL"] ?? appState.customTranscriptionModel
+            appState.apiKeyState = .ready
+            DiagnosticLog.write(
+                "E2E: provider=openai-compatible baseURL=\(appState.customTranscriptionBaseURL) model=\(appState.customTranscriptionModel)"
+            )
+            return
+        }
+
+        appState.selectedTranscriptionProviderID = .groq
+        if let model = env["E2E_TRANSCRIPTION_MODEL"], !model.isEmpty {
+            appState.selectedModel = model
+        }
+        appState.refreshApiKeyState()
+        DiagnosticLog.write("E2E: provider=groq model=\(appState.selectedModel)")
     }
 
     // MARK: - Automation smoke

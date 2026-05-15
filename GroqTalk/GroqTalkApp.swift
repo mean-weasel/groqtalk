@@ -34,8 +34,13 @@ struct GroqTalkApp: App {
 
         Window("GroqTalk Setup", id: "api-key-setup") {
             ApiKeySetupView(
+                provider: appDelegate.appState.selectedTranscriptionProvider,
                 onSaved: { [weak appDelegate] in
                     appDelegate?.appState.refreshApiKeyState()
+                },
+                validateApiKey: { [weak appDelegate] key in
+                    guard let appDelegate else { return }
+                    try await appDelegate.validateSelectedProviderApiKey(key)
                 }
             )
         }
@@ -537,28 +542,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
 
-            guard appState.hasApiKey else {
+            appState.refreshApiKeyState()
+            if appState.selectedTranscriptionProvider.requiresAPIKey && !appState.hasApiKey {
                 appState.refreshApiKeyState()
-                appState.failSetupCheck("Add Groq API key")
+                appState.failSetupCheck("Add \(appState.selectedTranscriptionProvider.displayName) API key")
                 return
             }
-
-            guard let apiKey = KeychainHelper.readApiKey() else {
-                appState.refreshApiKeyState()
-                appState.failSetupCheck("Add Groq API key")
-                return
-            }
+            let apiKey = KeychainHelper.readApiKey(for: appState.selectedTranscriptionProviderID)
 
             do {
                 let requiredModels = requiredModelsForSetupCheck()
-                try await transcriptionService.validateApiKey(
+                try await transcriptionService.withProvider(appState.selectedTranscriptionProvider).validateApiKey(
                     apiKey: apiKey,
                     requiredModels: requiredModels
                 )
                 appState.apiKeyState = .ready
             } catch TranscriptionService.TranscriptionError.invalidApiKey {
-                appState.apiKeyState = .needsAction("Invalid Groq API key")
-                appState.failSetupCheck("Invalid Groq API key")
+                appState.apiKeyState = .needsAction("Invalid \(appState.selectedTranscriptionProvider.displayName) API key")
+                appState.failSetupCheck("Invalid \(appState.selectedTranscriptionProvider.displayName) API key")
                 return
             } catch {
                 let message = transcriptionController.errorMessage(from: error)
@@ -600,8 +601,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func validateSelectedProviderApiKey(_ key: String) async throws {
+        try await transcriptionService
+            .withProvider(appState.selectedTranscriptionProvider)
+            .validateApiKey(apiKey: key)
+    }
+
     private func requiredModelsForSetupCheck() -> [String] {
-        var models = [appState.selectedModel]
+        var models = [appState.selectedTranscriptionModel]
         if appState.transcriptProcessingMode != .raw {
             models.append(appState.transcriptCleanupModel)
         }

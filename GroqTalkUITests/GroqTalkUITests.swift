@@ -251,7 +251,14 @@ final class GroqTalkUITests: XCTestCase {
     // MARK: - E2E Transcription (requires GROQ_API_KEY)
 
     func testE2ETranscription() throws {
-        guard let apiKey = readGroqKeyViaCLI() else {
+        let env = ProcessInfo.processInfo.environment
+        let isOpenAICompatibleE2E = env["E2E_TRANSCRIPTION_PROVIDER"] == "openai-compatible"
+        let apiKey: String
+        if isOpenAICompatibleE2E {
+            apiKey = env["E2E_API_KEY"] ?? "local"
+        } else if let groqKey = readGroqKeyViaCLI() {
+            apiKey = groqKey
+        } else {
             throw XCTSkip("GROQ_API_KEY not in keychain — skipping E2E transcription test")
         }
 
@@ -266,6 +273,13 @@ final class GroqTalkUITests: XCTestCase {
             "--e2e-transcribe"
         ]
         app.launchEnvironment["E2E_API_KEY"] = apiKey
+        if isOpenAICompatibleE2E {
+            app.launchEnvironment["E2E_TRANSCRIPTION_PROVIDER"] = "openai-compatible"
+            app.launchEnvironment["E2E_TRANSCRIPTION_BASE_URL"] = env["E2E_TRANSCRIPTION_BASE_URL"] ?? "http://127.0.0.1:8080/v1"
+            app.launchEnvironment["E2E_TRANSCRIPTION_MODEL"] = env["E2E_TRANSCRIPTION_MODEL"] ?? "whisper-1"
+        } else if let model = env["E2E_TRANSCRIPTION_MODEL"] {
+            app.launchEnvironment["E2E_TRANSCRIPTION_MODEL"] = model
+        }
         app.launch()
 
         XCTAssertTrue(controlCenter.waitForExistence(timeout: 10), "App should launch")

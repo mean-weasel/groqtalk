@@ -6,28 +6,106 @@ protocol TranscriptionTransport {
 
 extension URLSession: TranscriptionTransport {}
 
+enum TranscriptionProviderID: String, CaseIterable, Identifiable {
+    case groq
+    case openAICompatible = "openai-compatible"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .groq:
+            "Groq"
+        case .openAICompatible:
+            "OpenAI-compatible"
+        }
+    }
+}
+
+struct TranscriptionProvider: Equatable {
+    let id: TranscriptionProviderID
+    let displayName: String
+    let baseURL: URL
+    let transcriptionModel: String
+    let requiresAPIKey: Bool
+    let supportsModelValidation: Bool
+    let supportsTranscriptProcessing: Bool
+
+    static let groq = TranscriptionProvider(
+        id: .groq,
+        displayName: "Groq",
+        baseURL: URL(string: "https://api.groq.com/openai/v1")!,
+        transcriptionModel: "whisper-large-v3-turbo",
+        requiresAPIKey: true,
+        supportsModelValidation: true,
+        supportsTranscriptProcessing: true
+    )
+
+    static func openAICompatible(
+        baseURL: URL,
+        model: String,
+        requiresAPIKey: Bool = false
+    ) -> TranscriptionProvider {
+        TranscriptionProvider(
+            id: .openAICompatible,
+            displayName: "OpenAI-compatible",
+            baseURL: baseURL,
+            transcriptionModel: model,
+            requiresAPIKey: requiresAPIKey,
+            supportsModelValidation: false,
+            supportsTranscriptProcessing: false
+        )
+    }
+
+    var audioTranscriptionsEndpoint: URL {
+        endpoint("audio/transcriptions")
+    }
+
+    var chatCompletionsEndpoint: URL {
+        endpoint("chat/completions")
+    }
+
+    var modelsEndpoint: URL {
+        endpoint("models")
+    }
+
+    private func endpoint(_ path: String) -> URL {
+        let root = baseURL.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return URL(string: "\(root)/\(path)")!
+    }
+}
+
 struct TranscriptionService {
     static let maxUploadBytes = 25 * 1024 * 1024
 
-    private let endpoint = URL(string: "https://api.groq.com/openai/v1/audio/transcriptions")!
-    private let chatEndpoint = URL(string: "https://api.groq.com/openai/v1/chat/completions")!
-    private let modelsEndpoint = URL(string: "https://api.groq.com/openai/v1/models")!
+    private let provider: TranscriptionProvider
     private let transport: TranscriptionTransport
 
-    init(transport: TranscriptionTransport = URLSession.shared) {
+    init(provider: TranscriptionProvider = .groq, transport: TranscriptionTransport = URLSession.shared) {
+        self.provider = provider
         self.transport = transport
     }
 
-    func transcribe(audioFileURL: URL, apiKey: String, model: String, format: AudioFormat = .wav, language: Language = .auto) async throws -> String {
+    func withProvider(_ provider: TranscriptionProvider) -> TranscriptionService {
+        TranscriptionService(provider: provider, transport: transport)
+    }
+
+    func transcribe(
+        audioFileURL: URL,
+        apiKey: String?,
+        model: String,
+        format: AudioFormat = .wav,
+        language: Language = .auto
+    ) async throws -> String {
         guard fileSize(at: audioFileURL) <= Self.maxUploadBytes else {
             DiagnosticLog.write("transcribe: local file too large")
             throw TranscriptionError.fileTooLarge
         }
 
         let boundary = UUID().uuidString
-        var request = URLRequest(url: endpoint)
+        var request = URLRequest(url: provider.audioTranscriptionsEndpoint)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        setAuthorizationHeader(apiKey: apiKey, on: &request)
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = try await buildMultipartBodyAsync(
             audioFileURL: audioFileURL, model: model, format: format, language: language, boundary: boundary
@@ -62,14 +140,14 @@ struct TranscriptionService {
 
     func processTranscript(
         _ transcript: String,
-        apiKey: String,
+        apiKey: String?,
         mode: TranscriptProcessingMode,
         model: String
     ) async throws -> String {
         guard mode != .raw else { return transcript }
-        var request = URLRequest(url: chatEndpoint)
+        var request = URLRequest(url: provider.chatCompletionsEndpoint)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        setAuthorizationHeader(apiKey: apiKey, on: &request)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try buildTranscriptProcessingBody(transcript: transcript, mode: mode, model: model)
 
@@ -102,12 +180,17 @@ struct TranscriptionService {
         throw error
     }
 
-    func validateApiKey(apiKey: String, requiredModels: [String] = []) async throws {
-        var request = URLRequest(url: modelsEndpoint)
-        request.httpMethod = "GET"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+    func validateApiKey(apiKey: String?, requiredModels: [String] = []) async throws {
+        guard provider.supportsModelValidation else {
+            DiagnosticLog.write("validateApiKey: skipping model validation for provider=\(provider.id.rawValue)")
+            return
+        }
 
-        DiagnosticLog.write("validateApiKey: checking Groq API key requiredModels=\(requiredModels.count)")
+        var request = URLRequest(url: provider.modelsEndpoint)
+        request.httpMethod = "GET"
+        setAuthorizationHeader(apiKey: apiKey, on: &request)
+
+        DiagnosticLog.write("validateApiKey: checking provider=\(provider.id.rawValue) requiredModels=\(requiredModels.count)")
         let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             DiagnosticLog.write("validateApiKey: invalid response type")
@@ -229,6 +312,12 @@ struct TranscriptionService {
             case .apiError(let code, _): "apiError(\(code))"
             }
         }
+    }
+
+    private func setAuthorizationHeader(apiKey: String?, on request: inout URLRequest) {
+        let trimmed = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmed.isEmpty else { return }
+        request.setValue("Bearer \(trimmed)", forHTTPHeaderField: "Authorization")
     }
 
     private func mapAPIError(statusCode: Int, data: Data) -> TranscriptionError {

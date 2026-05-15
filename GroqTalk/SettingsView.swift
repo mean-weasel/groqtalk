@@ -142,19 +142,35 @@ struct SettingsView: View {
     private var transcriptionSettings: some View {
         Form {
             HStack {
-                Text("Groq API key")
+                Text("\(appState.selectedTranscriptionProvider.displayName) API key")
                 Spacer()
-                Label(appState.hasApiKey ? "Saved" : "Missing", systemImage: appState.hasApiKey ? "checkmark.circle.fill" : "exclamationmark.circle")
-                    .foregroundStyle(appState.hasApiKey ? .green : .orange)
+                Label(apiKeyStatusLabel, systemImage: apiKeyStatusImage)
+                    .foregroundStyle(apiKeyStatusColor)
                 Button("Change...") {
                     openWindow(id: "api-key-setup")
                 }
                 .accessibilityIdentifier("settings.changeApiKeyButton")
             }
 
-            Picker("Whisper model", selection: $appState.selectedModel) {
-                Text("Large V3 Turbo").tag("whisper-large-v3-turbo")
-                Text("Large V3").tag("whisper-large-v3")
+            Picker("Provider", selection: $appState.selectedTranscriptionProviderID) {
+                Text("Groq").tag(TranscriptionProviderID.groq)
+                Text("OpenAI-compatible").tag(TranscriptionProviderID.openAICompatible)
+            }
+            .accessibilityIdentifier("settings.transcriptionProviderPicker")
+            .onChange(of: appState.selectedTranscriptionProviderID) { _, _ in
+                appState.refreshApiKeyState()
+            }
+
+            if appState.selectedTranscriptionProviderID == .groq {
+                Picker("Whisper model", selection: $appState.selectedModel) {
+                    Text("Large V3 Turbo").tag("whisper-large-v3-turbo")
+                    Text("Large V3").tag("whisper-large-v3")
+                }
+            } else {
+                TextField("Base URL", text: $appState.customTranscriptionBaseURL)
+                    .accessibilityIdentifier("settings.customTranscriptionBaseURL")
+                TextField("Model", text: $appState.customTranscriptionModel)
+                    .accessibilityIdentifier("settings.customTranscriptionModel")
             }
 
             Picker("After transcription", selection: $appState.transcriptProcessingMode) {
@@ -178,6 +194,21 @@ struct SettingsView: View {
             #endif
         }
         .formStyle(.grouped)
+    }
+
+    private var apiKeyStatusLabel: String {
+        if appState.hasApiKey { return "Saved" }
+        return appState.selectedTranscriptionProvider.requiresAPIKey ? "Missing" : "Optional"
+    }
+
+    private var apiKeyStatusImage: String {
+        if appState.hasApiKey { return "checkmark.circle.fill" }
+        return appState.selectedTranscriptionProvider.requiresAPIKey ? "exclamationmark.circle" : "minus.circle"
+    }
+
+    private var apiKeyStatusColor: Color {
+        if appState.hasApiKey { return .green }
+        return appState.selectedTranscriptionProvider.requiresAPIKey ? .orange : .secondary
     }
 
     private var pasteSettings: some View {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ApiKeySetupView: View {
+    var provider: TranscriptionProvider = .groq
     var onSaved: (() -> Void)?
     var validateApiKey: (String) async throws -> Void = { key in
         try await TranscriptionService().validateApiKey(apiKey: key)
@@ -22,15 +23,15 @@ struct ApiKeySetupView: View {
             Text("GroqTalk Setup")
                 .font(.headline)
 
-            Text("Enter your Groq API key to enable speech-to-text.")
+            Text("Enter your \(provider.displayName) API key to enable speech-to-text.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
 
-            SecureField("gsk_...", text: $apiKey)
+            SecureField(provider.id == .groq ? "gsk_..." : "API key", text: $apiKey)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 320)
-                .accessibilityLabel("Groq API Key")
+                .accessibilityLabel("\(provider.displayName) API Key")
                 .accessibilityIdentifier("apiKeySetup.apiKeyField")
 
             if let errorMessage {
@@ -85,7 +86,7 @@ struct ApiKeySetupView: View {
         .frame(width: 380)
         .accessibilityIdentifier("apiKeySetup.root")
         .onAppear {
-            if let existing = KeychainHelper.readApiKey() {
+            if let existing = KeychainHelper.readApiKey(for: provider.id) {
                 apiKey = existing
             }
         }
@@ -99,7 +100,7 @@ struct ApiKeySetupView: View {
         Task {
             do {
                 try await validateApiKey(key)
-                try KeychainHelper.save(apiKey: key)
+                try KeychainHelper.save(apiKey: key, for: provider.id)
                 await MainActor.run {
                     finishSaved()
                 }
@@ -116,7 +117,7 @@ struct ApiKeySetupView: View {
 
     private func saveKeyWithoutValidation() {
         do {
-            try KeychainHelper.save(apiKey: apiKey)
+            try KeychainHelper.save(apiKey: apiKey, for: provider.id)
             finishSaved()
         } catch {
             errorMessage = "Failed to save: \(error.localizedDescription)"
