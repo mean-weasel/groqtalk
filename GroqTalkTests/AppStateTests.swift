@@ -332,6 +332,25 @@ final class AppStateTests: XCTestCase {
         XCTAssertEqual(presentation.detail, "OpenAI-compatible · whisper-1")
     }
 
+    func testCustomProviderUsesRawEffectiveProcessingModeForPresentation() {
+        let state = AppState()
+        state.selectedTranscriptionProviderID = .openAICompatible
+        state.customTranscriptionBaseURL = "http://127.0.0.1:8080/v1"
+        state.customTranscriptionModel = "whisper-1"
+        state.transcriptProcessingMode = .cleanUp
+        state.transcriptionStage = .transcribingAudio
+        state.setStatus(.transcribing)
+
+        let presentation = state.sessionPresentation(
+            hotkeyLabel: "Right Command",
+            hasRetryableFailure: false,
+            hasLastSuccess: false
+        )
+
+        XCTAssertEqual(state.effectiveTranscriptProcessingMode, .raw)
+        XCTAssertEqual(presentation.detail, "OpenAI-compatible · whisper-1")
+    }
+
     func testCleaningSessionPresentationShowsCleanupModel() {
         let state = AppState()
         state.transcriptProcessingMode = .cleanUp

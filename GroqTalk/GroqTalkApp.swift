@@ -549,20 +549,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
             let apiKey = KeychainHelper.readApiKey(for: appState.selectedTranscriptionProviderID)
+            var setupSuccessDetail = "Ready to record"
 
             do {
+                if appState.selectedTranscriptionProviderID == .openAICompatible,
+                   appState.customTranscriptionBaseURLValue == nil {
+                    appState.failSetupCheck("Invalid OpenAI-compatible base URL")
+                    return
+                }
                 let requiredModels = requiredModelsForSetupCheck()
-                try await transcriptionService.withProvider(appState.selectedTranscriptionProvider).validateApiKey(
+                let validation = try await transcriptionService.withProvider(appState.selectedTranscriptionProvider).validateProviderConfiguration(
                     apiKey: apiKey,
                     requiredModels: requiredModels
                 )
+                if validation == .reachableWithoutModelValidation {
+                    DiagnosticLog.write("setupCheck: provider reachable but model validation skipped")
+                    setupSuccessDetail = "Server reachable; model availability was not checked"
+                }
                 appState.apiKeyState = .ready
             } catch TranscriptionService.TranscriptionError.invalidApiKey {
                 appState.apiKeyState = .needsAction("Invalid \(appState.selectedTranscriptionProvider.displayName) API key")
                 appState.failSetupCheck("Invalid \(appState.selectedTranscriptionProvider.displayName) API key")
                 return
+            } catch TranscriptionService.TranscriptionError.invalidProviderURL {
+                appState.failSetupCheck("Invalid OpenAI-compatible base URL")
+                return
             } catch {
-                let message = transcriptionController.errorMessage(from: error)
+                let message = setupCheckErrorMessage(from: error)
                 appState.failSetupCheck(message)
                 return
             }
@@ -589,7 +602,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if let testRecordingURL {
                     try? FileManager.default.removeItem(at: testRecordingURL)
                 }
-                appState.completeSetupCheck()
+                appState.completeSetupCheck(detail: setupSuccessDetail)
             } catch is CancellationError {
                 audioRecorder.cancelRecording()
                 appState.failSetupCheck("Setup check cancelled")
@@ -602,17 +615,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func validateSelectedProviderApiKey(_ key: String) async throws {
-        try await transcriptionService
+        _ = try await transcriptionService
             .withProvider(appState.selectedTranscriptionProvider)
-            .validateApiKey(apiKey: key)
+            .validateProviderConfiguration(apiKey: key)
     }
 
     private func requiredModelsForSetupCheck() -> [String] {
         var models = [appState.selectedTranscriptionModel]
-        if appState.transcriptProcessingMode != .raw {
+        if appState.effectiveTranscriptProcessingMode != .raw {
             models.append(appState.transcriptCleanupModel)
         }
         return Array(Set(models))
+    }
+
+    private func setupCheckErrorMessage(from error: Error) -> String {
+        if appState.selectedTranscriptionProviderID == .openAICompatible {
+            if error is URLError {
+                return "Could not reach OpenAI-compatible transcription server"
+            }
+            if let transcriptionError = error as? TranscriptionService.TranscriptionError,
+               transcriptionError == .invalidResponse {
+                return "OpenAI-compatible transcription server returned an invalid response"
+            }
+        }
+        return transcriptionController.errorMessage(from: error)
     }
 
     private func requestMicrophoneAccessIfNeeded() async -> Bool {

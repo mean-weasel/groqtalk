@@ -204,22 +204,21 @@ final class TranscriptionController {
         service: TranscriptionService? = nil,
         context: String
     ) async -> (text: String, cleanupFailed: Bool) {
-        guard appState.transcriptProcessingMode != .raw else {
+        let processingMode = appState.effectiveTranscriptProcessingMode
+        guard processingMode != .raw else {
+            if appState.transcriptProcessingMode != .raw {
+                DiagnosticLog.write("\(context): transcript processing skipped for provider=\(appState.selectedTranscriptionProvider.id.rawValue)")
+            }
             return (rawText, false)
         }
 
         let service = service ?? transcriptionService
-        guard appState.selectedTranscriptionProvider.supportsTranscriptProcessing else {
-            DiagnosticLog.write("\(context): transcript processing skipped for provider=\(appState.selectedTranscriptionProvider.id.rawValue)")
-            return (rawText, true)
-        }
-
         appState.transcriptionStage = .cleaningTranscript
         do {
             let text = try await service.processTranscript(
                 rawText,
                 apiKey: apiKey,
-                mode: appState.transcriptProcessingMode,
+                mode: processingMode,
                 model: appState.transcriptCleanupModel
             )
             return (text, false)
@@ -234,6 +233,8 @@ final class TranscriptionController {
         switch error {
         case TranscriptionService.TranscriptionError.invalidApiKey:
             "Invalid API key"
+        case TranscriptionService.TranscriptionError.invalidProviderURL:
+            "Invalid provider URL"
         case TranscriptionService.TranscriptionError.fileTooLarge:
             "Recording too long"
         case AudioRecorder.RecordingError.recordingTooLong:

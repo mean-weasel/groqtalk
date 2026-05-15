@@ -578,6 +578,100 @@ final class TranscriptionServiceTests: XCTestCase {
         XCTAssertFalse(transportCalled)
     }
 
+    func testValidateProviderConfigurationChecksCustomModelsEndpoint() async throws {
+        let provider = TranscriptionProvider.openAICompatible(
+            baseURL: URL(string: "http://127.0.0.1:8080/v1")!,
+            model: "whisper-1"
+        )
+        let transport = StubTransport { request in
+            XCTAssertEqual(request.url?.absoluteString, "http://127.0.0.1:8080/v1/models")
+            XCTAssertEqual(request.httpMethod, "GET")
+            XCTAssertEqual(request.timeoutInterval, TranscriptionService.providerValidationTimeout)
+            return (
+                Data(#"{"data":[{"id":"whisper-1"}]}"#.utf8),
+                Self.httpResponse(statusCode: 200, url: request.url!)
+            )
+        }
+        let service = TranscriptionService(provider: provider, transport: transport)
+
+        let result = try await service.validateProviderConfiguration(apiKey: nil, requiredModels: ["whisper-1"])
+
+        XCTAssertEqual(result, .modelsValidated)
+        XCTAssertEqual(transport.requests.count, 1)
+    }
+
+    func testValidateProviderConfigurationAllowsReachableCustomServerWithoutModelsEndpoint() async throws {
+        let provider = TranscriptionProvider.openAICompatible(
+            baseURL: URL(string: "http://127.0.0.1:8080/v1")!,
+            model: "whisper-1"
+        )
+        let service = TranscriptionService(provider: provider, transport: StubTransport { request in
+            (
+                Data("not found".utf8),
+                Self.httpResponse(statusCode: 404, url: request.url!)
+            )
+        })
+
+        let result = try await service.validateProviderConfiguration(apiKey: nil, requiredModels: ["whisper-1"])
+
+        XCTAssertEqual(result, .reachableWithoutModelValidation)
+    }
+
+    func testValidateProviderConfigurationFailsWhenCustomServerIsUnreachable() async throws {
+        let provider = TranscriptionProvider.openAICompatible(
+            baseURL: URL(string: "http://127.0.0.1:9999/v1")!,
+            model: "whisper-1"
+        )
+        let service = TranscriptionService(provider: provider, transport: StubTransport { _ in
+            throw URLError(.cannotConnectToHost)
+        })
+
+        do {
+            _ = try await service.validateProviderConfiguration(apiKey: nil, requiredModels: ["whisper-1"])
+            XCTFail("Expected reachability failure")
+        } catch let error as URLError {
+            XCTAssertEqual(error.code, .cannotConnectToHost)
+        }
+    }
+
+    func testValidateProviderConfigurationRejectsInvalidCustomBaseURL() async throws {
+        let provider = TranscriptionProvider.openAICompatible(
+            baseURL: URL(fileURLWithPath: "/tmp/whisper"),
+            model: "whisper-1"
+        )
+        let service = TranscriptionService(provider: provider, transport: StubTransport { request in
+            XCTFail("Invalid base URL should fail before request: \(String(describing: request.url))")
+            return (Data(), Self.httpResponse(statusCode: 500))
+        })
+
+        do {
+            _ = try await service.validateProviderConfiguration(apiKey: nil, requiredModels: ["whisper-1"])
+            XCTFail("Expected invalid provider URL")
+        } catch let error as TranscriptionService.TranscriptionError {
+            XCTAssertEqual(error, .invalidProviderURL)
+        }
+    }
+
+    func testValidateProviderConfigurationFailsWhenCustomModelIsUnavailable() async throws {
+        let provider = TranscriptionProvider.openAICompatible(
+            baseURL: URL(string: "http://127.0.0.1:8080/v1")!,
+            model: "whisper-1"
+        )
+        let service = TranscriptionService(provider: provider, transport: StubTransport { request in
+            (
+                Data(#"{"data":[{"id":"other-model"}]}"#.utf8),
+                Self.httpResponse(statusCode: 200, url: request.url!)
+            )
+        })
+
+        do {
+            _ = try await service.validateProviderConfiguration(apiKey: nil, requiredModels: ["whisper-1"])
+            XCTFail("Expected missing custom model failure")
+        } catch let error as TranscriptionService.TranscriptionError {
+            XCTAssertEqual(error, .modelUnavailable("whisper-1"))
+        }
+    }
+
     func testValidateApiKeyMapsHTTP401ToInvalidApiKey() async throws {
         let service = TranscriptionService(transport: StubTransport { request in
             (Data("unauthorized".utf8), Self.httpResponse(statusCode: 401, url: request.url!))

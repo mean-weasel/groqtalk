@@ -89,6 +89,7 @@ final class AppState {
     var microphoneState: PermissionState = .unknown
     var apiKeyState: PermissionState = .unknown
     var setupCheckState: SetupCheckState = .idle
+    var setupCheckSuccessDetail = "Ready to record"
 
     // MARK: - UserDefaults-backed preferences
     //
@@ -214,7 +215,7 @@ final class AppState {
             return provider
         case .openAICompatible:
             let fallback = URL(string: "http://127.0.0.1:8080/v1")!
-            let baseURL = URL(string: customTranscriptionBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)) ?? fallback
+            let baseURL = customTranscriptionBaseURLValue ?? fallback
             return .openAICompatible(
                 baseURL: baseURL,
                 model: customTranscriptionModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -227,6 +228,28 @@ final class AppState {
 
     var selectedTranscriptionModel: String {
         selectedTranscriptionProvider.transcriptionModel
+    }
+
+    var supportsSelectedTranscriptProcessing: Bool {
+        selectedTranscriptionProvider.supportsTranscriptProcessing
+    }
+
+    var effectiveTranscriptProcessingMode: TranscriptProcessingMode {
+        supportsSelectedTranscriptProcessing ? transcriptProcessingMode : .raw
+    }
+
+    var customTranscriptionBaseURLValue: URL? {
+        guard selectedTranscriptionProviderID == .openAICompatible else {
+            return nil
+        }
+        let trimmed = customTranscriptionBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host != nil else {
+            return nil
+        }
+        return url
     }
 
     var isSetupReady: Bool {
@@ -501,7 +524,7 @@ final class AppState {
     }
 
     private var transcriptionDetail: String {
-        switch transcriptProcessingMode {
+        switch effectiveTranscriptProcessingMode {
         case .raw:
             "\(selectedTranscriptionProvider.displayName) · \(selectedTranscriptionModel)"
         case .cleanUp, .rewriteClearly:
@@ -672,7 +695,8 @@ final class AppState {
         setupCheckState = .running
     }
 
-    func completeSetupCheck() {
+    func completeSetupCheck(detail: String = "Ready to record") {
+        setupCheckSuccessDetail = detail
         setupCheckState = .passed(Date())
     }
 

@@ -36,6 +36,20 @@ final class TranscriptionDelegateSpy: TranscriptionControllerDelegate {
     }
 }
 
+private final class ControllerStubTransport: TranscriptionTransport {
+    var requests: [URLRequest] = []
+    let handler: (URLRequest) async throws -> (Data, URLResponse)
+
+    init(handler: @escaping (URLRequest) async throws -> (Data, URLResponse)) {
+        self.handler = handler
+    }
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        requests.append(request)
+        return try await handler(request)
+    }
+}
+
 // MARK: - Tests
 
 @MainActor
@@ -43,8 +57,14 @@ final class TranscriptionControllerTests: XCTestCase {
     private var appState: AppState!
     private var controller: TranscriptionController!
     private var spy: TranscriptionDelegateSpy!
+    private var keychainStorageDirectory: URL!
 
     override func setUpWithError() throws {
+        keychainStorageDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("GroqTalkTranscriptionControllerTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: keychainStorageDirectory, withIntermediateDirectories: true)
+        KeychainHelper.serviceOverride = "com.neonwatty.GroqTalk.transcription-controller-tests.\(UUID().uuidString)"
+        KeychainHelper.storageDirectoryOverride = keychainStorageDirectory
         appState = AppState()
         controller = TranscriptionController(
             transcriptionService: TranscriptionService(),
@@ -58,6 +78,12 @@ final class TranscriptionControllerTests: XCTestCase {
         controller = nil
         appState = nil
         spy = nil
+        if let keychainStorageDirectory {
+            try? FileManager.default.removeItem(at: keychainStorageDirectory)
+        }
+        KeychainHelper.serviceOverride = nil
+        KeychainHelper.storageDirectoryOverride = nil
+        keychainStorageDirectory = nil
     }
 
     // MARK: - errorMessage mapping
@@ -146,6 +172,53 @@ final class TranscriptionControllerTests: XCTestCase {
         )
         XCTAssertEqual(result.text, "hello world")
         XCTAssertFalse(result.cleanupFailed)
+    }
+
+    func testProcessTranscriptOrRawSkipsUnsupportedCustomCleanupWithoutFailure() async {
+        appState.selectedTranscriptionProviderID = .openAICompatible
+        appState.customTranscriptionBaseURL = "http://127.0.0.1:8080/v1"
+        appState.customTranscriptionModel = "whisper-1"
+        appState.transcriptProcessingMode = .cleanUp
+
+        let result = await controller.processTranscriptOrRaw(
+            rawText: "raw local transcript",
+            apiKey: nil,
+            context: "test"
+        )
+
+        XCTAssertEqual(result.text, "raw local transcript")
+        XCTAssertFalse(result.cleanupFailed)
+        XCTAssertEqual(appState.effectiveTranscriptProcessingMode, .raw)
+    }
+
+    func testProcessTranscriptOrRawStillRunsGroqCleanupWhenSupported() async {
+        appState.selectedTranscriptionProviderID = .groq
+        appState.transcriptProcessingMode = .cleanUp
+        let transport = ControllerStubTransport { request in
+            XCTAssertEqual(request.url?.absoluteString, "https://api.groq.com/openai/v1/chat/completions")
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (
+                Data(#"{"choices":[{"message":{"content":"clean transcript"}}]}"#.utf8),
+                response
+            )
+        }
+        let service = TranscriptionService(transport: transport)
+
+        let result = await controller.processTranscriptOrRaw(
+            rawText: "raw transcript",
+            apiKey: "test-key",
+            service: service,
+            context: "test"
+        )
+
+        XCTAssertEqual(result.text, "clean transcript")
+        XCTAssertFalse(result.cleanupFailed)
+        XCTAssertEqual(transport.requests.count, 1)
     }
 
     // MARK: - transcribe without API key

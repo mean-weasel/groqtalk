@@ -36,18 +36,18 @@ final class RecordingControllerDelegateSpy: RecordingControllerDelegate {
     }
 }
 
-// MARK: - Tests (concrete AudioRecorder — kept for smoke/compat coverage)
+// MARK: - Tests
 
 @MainActor
 final class RecordingControllerTests: XCTestCase {
     private var appState: AppState!
-    private var audioRecorder: AudioRecorder!
+    private var audioRecorder: MockAudioRecorder!
     private var controller: RecordingController!
     private var spy: RecordingControllerDelegateSpy!
 
     override func setUpWithError() throws {
         appState = AppState()
-        audioRecorder = AudioRecorder()
+        audioRecorder = MockAudioRecorder()
         controller = RecordingController(audioRecorder: audioRecorder, appState: appState)
         spy = RecordingControllerDelegateSpy()
         controller.delegate = spy
@@ -63,31 +63,19 @@ final class RecordingControllerTests: XCTestCase {
 
     // MARK: - testStartRecordingRequiresSetupReady
 
-    /// Verify that when setup is not ready, startRecording skips (does not change status to .recording).
-    /// Note: the controller does not gate on `isSetupReady` directly — the real guard is that
-    /// the microphone call will throw. When AppState is freshly created (setup not ready),
-    /// appState.status is .idle so the status guard passes, but the audioRecorder.startRecording()
-    /// call on a simulator will fail without a real input device, firing didFail.
-    /// This test validates the controller stays coherent (isRecording stays false) after a failure.
+    /// Verify that a recorder start failure leaves controller state coherent.
     func testStartRecordingRequiresSetupReady() throws {
-        // Initial state: setup not ready (permissions unknown by default)
+        audioRecorder.startRecordingShouldThrow = AudioRecorder.RecordingError.audioFormatUnavailable
         XCTAssertFalse(appState.isSetupReady)
         XCTAssertFalse(controller.isRecording)
 
-        // In a unit-test host without a real microphone, audioRecorder.startRecording()
-        // will throw. The controller must catch it and remain in a non-recording state.
         controller.startRecording()
 
-        // isRecording must stay false whether we got an error or the mic happened to start
-        if spy.didFailErrors.isEmpty {
-            // Mic started (real device / CI with mic) — cancel to clean up
-            XCTAssertTrue(controller.isRecording)
-            controller.cancelRecording()
-        } else {
-            XCTAssertFalse(controller.isRecording)
-            XCTAssertEqual(spy.didStartCount, 0)
-            XCTAssertFalse(appState.status == .recording)
-        }
+        XCTAssertEqual(audioRecorder.startRecordingCallCount, 1)
+        XCTAssertFalse(controller.isRecording)
+        XCTAssertEqual(spy.didStartCount, 0)
+        XCTAssertEqual(spy.didFailErrors.count, 1)
+        XCTAssertFalse(appState.status == .recording)
     }
 
     // MARK: - testCancelRecordingResetsToIdle

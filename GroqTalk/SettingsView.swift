@@ -173,19 +173,27 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings.customTranscriptionModel")
             }
 
-            Picker("After transcription", selection: $appState.transcriptProcessingMode) {
-                ForEach(TranscriptProcessingMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
+            if appState.supportsSelectedTranscriptProcessing {
+                Picker("After transcription", selection: $appState.transcriptProcessingMode) {
+                    ForEach(TranscriptProcessingMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
                 }
-            }
-            .accessibilityIdentifier("settings.transcriptProcessingPicker")
+                .accessibilityIdentifier("settings.transcriptProcessingPicker")
 
-            if appState.transcriptProcessingMode != .raw {
-                Picker("Cleanup model", selection: $appState.transcriptCleanupModel) {
-                    Text("Llama 3.3 70B Versatile").tag("llama-3.3-70b-versatile")
-                    Text("Llama 3.1 8B Instant").tag("llama-3.1-8b-instant")
+                if appState.transcriptProcessingMode != .raw {
+                    Picker("Cleanup model", selection: $appState.transcriptCleanupModel) {
+                        Text("Llama 3.3 70B Versatile").tag("llama-3.3-70b-versatile")
+                        Text("Llama 3.1 8B Instant").tag("llama-3.1-8b-instant")
+                    }
+                    .accessibilityIdentifier("settings.cleanupModelPicker")
                 }
-                .accessibilityIdentifier("settings.cleanupModelPicker")
+            } else {
+                Text("Cleanup requires a Groq-compatible chat provider. Custom transcription currently uses raw transcripts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("settings.transcriptProcessingUnavailable")
             }
 
             #if DEBUG

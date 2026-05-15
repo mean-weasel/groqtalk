@@ -77,6 +77,7 @@ struct TranscriptionProvider: Equatable {
 
 struct TranscriptionService {
     static let maxUploadBytes = 25 * 1024 * 1024
+    static let providerValidationTimeout: TimeInterval = 3
 
     private let provider: TranscriptionProvider
     private let transport: TranscriptionTransport
@@ -218,6 +219,47 @@ struct TranscriptionService {
         }
     }
 
+    func validateProviderConfiguration(apiKey: String?, requiredModels: [String] = []) async throws -> ProviderValidationResult {
+        guard provider.id == .openAICompatible else {
+            try await validateApiKey(apiKey: apiKey, requiredModels: requiredModels)
+            return .modelsValidated
+        }
+
+        guard isValidHTTPBaseURL(provider.baseURL) else {
+            DiagnosticLog.write("validateProviderConfiguration: invalid base URL provider=\(provider.id.rawValue)")
+            throw TranscriptionError.invalidProviderURL
+        }
+
+        var request = URLRequest(url: provider.modelsEndpoint)
+        request.httpMethod = "GET"
+        request.timeoutInterval = Self.providerValidationTimeout
+        setAuthorizationHeader(apiKey: apiKey, on: &request)
+
+        DiagnosticLog.write("validateProviderConfiguration: checking reachability provider=\(provider.id.rawValue)")
+        let (data, response) = try await transport.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            DiagnosticLog.write("validateProviderConfiguration: invalid response type")
+            throw TranscriptionError.invalidResponse
+        }
+        DiagnosticLog.write("validateProviderConfiguration: response status=\(http.statusCode) responseBytes=\(data.count)")
+
+        switch http.statusCode {
+        case 200:
+            guard let responseBody = try? JSONDecoder().decode(ModelsResponse.self, from: data) else {
+                return .reachableWithoutModelValidation
+            }
+            let availableModels = Set(responseBody.data.map(\.id))
+            for model in requiredModels where !availableModels.contains(model) {
+                throw TranscriptionError.modelUnavailable(model)
+            }
+            return .modelsValidated
+        case 404, 405:
+            return .reachableWithoutModelValidation
+        default:
+            throw mapAPIError(statusCode: http.statusCode, data: data)
+        }
+    }
+
     func buildTranscriptProcessingBody(
         transcript: String,
         mode: TranscriptProcessingMode,
@@ -291,6 +333,7 @@ struct TranscriptionService {
     enum TranscriptionError: Error, Equatable {
         case invalidResponse
         case invalidApiKey
+        case invalidProviderURL
         case fileTooLarge
         case rateLimited(String?)
         case quotaExceeded(String?)
@@ -303,6 +346,7 @@ struct TranscriptionService {
             switch self {
             case .invalidResponse: "invalidResponse"
             case .invalidApiKey: "invalidApiKey"
+            case .invalidProviderURL: "invalidProviderURL"
             case .fileTooLarge: "fileTooLarge"
             case .rateLimited: "rateLimited"
             case .quotaExceeded: "quotaExceeded"
@@ -314,10 +358,24 @@ struct TranscriptionService {
         }
     }
 
+    enum ProviderValidationResult: Equatable {
+        case modelsValidated
+        case reachableWithoutModelValidation
+    }
+
     private func setAuthorizationHeader(apiKey: String?, on request: inout URLRequest) {
         let trimmed = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !trimmed.isEmpty else { return }
         request.setValue("Bearer \(trimmed)", forHTTPHeaderField: "Authorization")
+    }
+
+    private func isValidHTTPBaseURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              ["http", "https"].contains(scheme),
+              url.host != nil else {
+            return false
+        }
+        return true
     }
 
     private func mapAPIError(statusCode: Int, data: Data) -> TranscriptionError {

@@ -256,6 +256,10 @@ final class GroqTalkUITests: XCTestCase {
         let apiKey: String
         if isOpenAICompatibleE2E {
             apiKey = env["E2E_API_KEY"] ?? "local"
+        } else if let envKey = env["GROQ_API_KEY"], !envKey.isEmpty {
+            apiKey = envKey
+        } else if env["RUN_LIVE_GROQ_TESTS"] != "1" {
+            throw XCTSkip("Set RUN_LIVE_GROQ_TESTS=1 and GROQ_API_KEY to run live Groq E2E UI test")
         } else if let groqKey = readGroqKeyViaCLI() {
             apiKey = groqKey
         } else {

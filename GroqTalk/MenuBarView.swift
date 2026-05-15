@@ -234,19 +234,27 @@ struct MenuBarView: View {
                             .accessibilityIdentifier("menu.settings.customTranscriptionModel")
                     }
 
-                    Picker("After transcription", selection: $appState.transcriptProcessingMode) {
-                        ForEach(TranscriptProcessingMode.allCases) { mode in
-                            Text(mode.displayName).tag(mode)
+                    if appState.supportsSelectedTranscriptProcessing {
+                        Picker("After transcription", selection: $appState.transcriptProcessingMode) {
+                            ForEach(TranscriptProcessingMode.allCases) { mode in
+                                Text(mode.displayName).tag(mode)
+                            }
                         }
-                    }
-                    .accessibilityIdentifier("menu.settings.transcriptProcessingPicker")
+                        .accessibilityIdentifier("menu.settings.transcriptProcessingPicker")
 
-                    if appState.transcriptProcessingMode != .raw {
-                        Picker("Cleanup model", selection: $appState.transcriptCleanupModel) {
-                            Text("Llama 3.3 70B Versatile").tag("llama-3.3-70b-versatile")
-                            Text("Llama 3.1 8B Instant").tag("llama-3.1-8b-instant")
+                        if appState.transcriptProcessingMode != .raw {
+                            Picker("Cleanup model", selection: $appState.transcriptCleanupModel) {
+                                Text("Llama 3.3 70B Versatile").tag("llama-3.3-70b-versatile")
+                                Text("Llama 3.1 8B Instant").tag("llama-3.1-8b-instant")
+                            }
+                            .accessibilityIdentifier("menu.settings.cleanupModelPicker")
                         }
-                        .accessibilityIdentifier("menu.settings.cleanupModelPicker")
+                    } else {
+                        Text("Cleanup requires a Groq-compatible chat provider.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("menu.settings.transcriptProcessingUnavailable")
                     }
 
                     #if DEBUG
@@ -594,12 +602,19 @@ struct MenuBarView: View {
             Toggle("Show floating status", isOn: $appState.showFloatingStatus)
                 .accessibilityIdentifier("menu.floatingStatusToggle")
 
-            Picker("Cleanup", selection: $appState.transcriptProcessingMode) {
-                ForEach(TranscriptProcessingMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
+            if appState.supportsSelectedTranscriptProcessing {
+                Picker("Cleanup", selection: $appState.transcriptProcessingMode) {
+                    ForEach(TranscriptProcessingMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
                 }
+                .accessibilityIdentifier("menu.transcriptProcessingPicker")
+            } else {
+                Text("Cleanup unavailable for this provider")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("menu.transcriptProcessingUnavailable")
             }
-            .accessibilityIdentifier("menu.transcriptProcessingPicker")
 
             #if DEBUG
             Toggle("Mock Transcription", isOn: $appState.mockTranscriptionEnabled)
@@ -769,7 +784,7 @@ struct MenuBarView: View {
         case .running:
             "Checking..."
         case .passed:
-            "Ready to record"
+            appState.setupCheckSuccessDetail
         case .failed(let message):
             message
         }
