@@ -6,6 +6,14 @@ KEYCHAIN_NAME="groqtalk-codesign.keychain-db"
 KEYCHAIN_PATH="$HOME/Library/Keychains/$KEYCHAIN_NAME"
 KEYCHAIN_PASSWORD="${LOCAL_SIGN_KEYCHAIN_PASSWORD:-groqtalk-local-codesign}"
 P12_PASSWORD="groqtalk-local"
+TMPDIR_TO_CLEAN=""
+
+cleanup() {
+  if [ -n "$TMPDIR_TO_CLEAN" ]; then
+    rm -rf "$TMPDIR_TO_CLEAN"
+  fi
+}
+trap cleanup EXIT
 
 has_identity() {
   security find-identity -p codesigning "$KEYCHAIN_PATH" 2>/dev/null | grep -q "\"$CERT_NAME\""
@@ -45,7 +53,7 @@ create_keychain() {
 create_identity() {
   local tmpdir config
   tmpdir="$(mktemp -d)"
-  trap 'rm -rf "$tmpdir"' EXIT
+  TMPDIR_TO_CLEAN="$tmpdir"
   config="$tmpdir/openssl.cnf"
 
   cat > "$config" <<EOF
@@ -84,6 +92,12 @@ EOF
     -A \
     -T /usr/bin/codesign \
     -T /usr/bin/security >/dev/null
+
+  security add-trusted-cert \
+    -r trustRoot \
+    -p codeSign \
+    -k "$KEYCHAIN_PATH" \
+    "$tmpdir/codesign.crt" >/dev/null
 
   security set-key-partition-list \
     -S apple-tool:,apple:,codesign: \

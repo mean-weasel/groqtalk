@@ -82,7 +82,88 @@ final class GroqTalkUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Setup needed"].exists)
         XCTAssertTrue(app.staticTexts["Check Accessibility before recording"].exists)
         XCTAssertTrue(app.staticTexts["Not checked"].exists)
+        XCTAssertTrue(app.buttons["Check"].exists)
         XCTAssertFalse(app.staticTexts["Right Command · Pastes into current app"].exists)
+    }
+
+    func testMicrophoneUnknownShowsCheckAction() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--reset-defaults",
+            "--seed-microphone-unknown"
+        ]
+        app.launch()
+
+        XCTAssertTrue(controlCenter.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Microphone"].exists)
+        XCTAssertTrue(app.staticTexts["Not checked"].exists)
+        XCTAssertTrue(app.buttons["Check"].exists)
+    }
+
+    func testMicrophoneDeniedShowsOpenSettingsAction() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--reset-defaults",
+            "--seed-microphone-denied"
+        ]
+        app.launch()
+
+        XCTAssertTrue(controlCenter.waitForExistence(timeout: 5), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Microphone"].exists)
+        XCTAssertTrue(app.staticTexts["Allow microphone access"].exists)
+        XCTAssertTrue(app.buttons["Open Settings"].exists)
+    }
+
+    func testOnboardingMicrophoneStepCanCheckPermission() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--reset-defaults",
+            "--show-onboarding",
+            "--seed-microphone-unknown"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.windows["Welcome to GroqTalk"].waitForExistence(timeout: 5), app.debugDescription)
+        app.buttons["Next"].click()
+        app.buttons["Next"].click()
+
+        XCTAssertTrue(app.staticTexts["Microphone Access"].waitForExistence(timeout: 2), app.debugDescription)
+        XCTAssertTrue(app.staticTexts["Checking status"].exists || app.staticTexts["Checking..."].exists)
+        XCTAssertTrue(app.buttons["Check Microphone Access"].exists)
+
+        app.buttons["Check Microphone Access"].click()
+        XCTAssertTrue(app.staticTexts["Ready"].waitForExistence(timeout: 2), app.debugDescription)
+    }
+
+    func testOnboardingCompletionKeepsMenuBarAppRunning() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--reset-defaults",
+            "--show-onboarding",
+            "--seed-setup-ready"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.windows["Welcome to GroqTalk"].waitForExistence(timeout: 5), app.debugDescription)
+
+        while app.buttons["Next"].exists {
+            app.buttons["Next"].click()
+        }
+
+        XCTAssertTrue(app.buttons["Get Started"].waitForExistence(timeout: 2), app.debugDescription)
+        app.buttons["Get Started"].click()
+
+        XCTAssertFalse(app.windows["Welcome to GroqTalk"].waitForExistence(timeout: 2))
+        XCTAssertEqual(app.state, .runningForeground)
+        XCTAssertTrue(controlCenter.waitForExistence(timeout: 5), app.debugDescription)
     }
 
     func testHistoryWindowOpensAndSearchesSeededRecords() {
@@ -319,6 +400,53 @@ final class GroqTalkUITests: XCTestCase {
         app.launch()
         // UI testing mode should skip onboarding
         XCTAssertFalse(app.windows["Welcome to GroqTalk"].exists)
+    }
+
+    func testLiveMicrophoneSmoke() throws {
+        guard ProcessInfo.processInfo.environment["RUN_LIVE_MICROPHONE_TESTS"] == "1" else {
+            throw XCTSkip("Set RUN_LIVE_MICROPHONE_TESTS=1 to run live microphone QA.")
+        }
+
+        let resultPath = ProcessInfo.processInfo.environment["LIVE_MICROPHONE_RESULT_PATH"]
+            ?? "/tmp/groqtalk-live-microphone-result.txt"
+        try? FileManager.default.removeItem(atPath: resultPath)
+
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--ui-testing",
+            "--reset-defaults",
+            "--seed-setup-ready",
+            "--live-microphone-smoke"
+        ]
+        app.launchEnvironment["LIVE_MICROPHONE_RESULT_PATH"] = resultPath
+        if let signingIdentity = ProcessInfo.processInfo.environment["LIVE_MICROPHONE_SIGNING_IDENTITY"] {
+            app.launchEnvironment["LIVE_MICROPHONE_SIGNING_IDENTITY"] = signingIdentity
+        }
+        if let duration = ProcessInfo.processInfo.environment["LIVE_MICROPHONE_DURATION_SECONDS"] {
+            app.launchEnvironment["LIVE_MICROPHONE_DURATION_SECONDS"] = duration
+        }
+        app.launch()
+
+        let deadline = Date().addingTimeInterval(20)
+        var result = ""
+        while Date() < deadline {
+            result = (try? String(contentsOfFile: resultPath, encoding: .utf8)) ?? ""
+            if result.contains("status=pass") || result.contains("status=fail") {
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+
+        guard !result.isEmpty else {
+            XCTFail("Live microphone smoke produced no result file. Check macOS Microphone permission for GroqTalk, selected input device, and any blocking TCC prompt.")
+            return
+        }
+
+        XCTAssertFalse(result.contains("status=started"), "Live microphone smoke did not finish. Check microphone permission/TCC prompt or selected input device:\n\(result)")
+        XCTAssertFalse(result.contains("status=recording"), "Live microphone smoke started but did not stop. Check input-device or recorder state:\n\(result)")
+        XCTAssertTrue(result.contains("status=pass"), "Live microphone smoke failed:\n\(result)")
+        XCTAssertFalse(result.contains("bytes=0"), "Live microphone smoke captured no audio:\n\(result)")
     }
 
     // MARK: - E2E Transcription (requires GROQ_API_KEY)

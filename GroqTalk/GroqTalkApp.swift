@@ -25,6 +25,7 @@ struct GroqTalkApp: App {
                 onHotkeyChanged: { [weak appDelegate] in appDelegate?.applyHotkeyConfig() },
                 onOpenAccessibility: { [weak appDelegate] in appDelegate?.openAccessibilitySettings() },
                 onOpenMicrophone: { [weak appDelegate] in appDelegate?.openMicrophoneSettings() },
+                onCheckMicrophone: { [weak appDelegate] in appDelegate?.checkMicrophonePermission() },
                 onRunSetupCheck: { [weak appDelegate] in appDelegate?.runSetupCheck() }
             )
         } label: {
@@ -212,7 +213,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             startHotkeyMonitorWithRetry()
         }
-        if !hasCompletedOnboarding && !isTesting {
+        if shouldShowOnboarding(isTesting: isTesting) {
             showOnboarding()
         }
         if UserDefaults.standard.bool(forKey: "notificationsEnabled") {
@@ -220,11 +221,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    private func shouldShowOnboarding(isTesting: Bool) -> Bool {
+        if isTesting {
+            return ProcessInfo.processInfo.arguments.contains("--show-onboarding")
+        }
+        return !hasCompletedOnboarding
+    }
+
     private func showOnboarding() {
-        let onboardingView = OnboardingView(appState: appState) { [weak self] in
-            self?.hasCompletedOnboarding = true
-            self?.onboardingWindow?.close()
-            self?.onboardingWindow = nil
+        let onboardingView = OnboardingView(
+            appState: appState,
+            onCheckMicrophone: { [weak self] in self?.checkMicrophonePermission() }
+        ) { [weak self] in
+            guard let self else { return }
+            self.hasCompletedOnboarding = true
+            let window = self.onboardingWindow
+            self.onboardingWindow = nil
+            DispatchQueue.main.async {
+                window?.orderOut(nil)
+                window?.close()
+                NSApp.activate(ignoringOtherApps: true)
+            }
         }
 
         let window = NSWindow(
@@ -234,6 +255,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         window.title = "Welcome to GroqTalk"
+        window.isReleasedWhenClosed = false
         window.contentView = NSHostingView(rootView: onboardingView)
         window.center()
         window.makeKeyAndOrderFront(nil)
@@ -438,14 +460,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func startHotkeyMonitorWithRetry() {
         appState.refreshApiKeyState()
-        appState.updateAccessibilityState(isTrusted: AXIsProcessTrusted())
+        appState.updateAccessibilityState(isTrusted: accessibilityTrusted())
         if hotkeyMonitor.start() {
             appState.updateAccessibilityState(isTrusted: true)
             appState.setStatus(.idle)
             return
         }
 
-        guard !AXIsProcessTrusted() else {
+        guard !accessibilityTrusted() else {
             DiagnosticLog.write("HotkeyMonitor: start failed despite Accessibility trust")
             appState.updateAccessibilityState(isTrusted: false, message: "Restart GroqTalk")
             appState.showError("Failed to start hotkey monitor -- restart GroqTalk")
@@ -458,7 +480,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         appState.setStatus(.error("Enable Accessibility in Settings"))
 
         Task {
-            while !AXIsProcessTrusted() {
+            while !accessibilityTrusted() {
                 do {
                     try await Task.sleep(for: .seconds(2))
                 } catch {
@@ -492,13 +514,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 appState.failSetupCheck("Enable Accessibility")
                 return
             }
+            if ProcessInfo.processInfo.arguments.contains("--seed-microphone-unknown") {
+                appState.updateAccessibilityState(isTrusted: true)
+                appState.microphoneState = .unknown
+                appState.apiKeyState = .ready
+                return
+            }
+            if ProcessInfo.processInfo.arguments.contains("--seed-microphone-denied") {
+                appState.updateAccessibilityState(isTrusted: true)
+                appState.updateMicrophoneState(isReady: false, message: "Allow microphone access")
+                appState.apiKeyState = .ready
+                return
+            }
             appState.updateAccessibilityState(isTrusted: true)
             appState.updateMicrophoneState(isReady: true)
             appState.apiKeyState = .ready
             return
         }
         appState.refreshApiKeyState()
-        appState.updateAccessibilityState(isTrusted: AXIsProcessTrusted())
+        appState.updateAccessibilityState(isTrusted: accessibilityTrusted())
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
             appState.updateMicrophoneState(isReady: true)
@@ -523,6 +557,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         NSWorkspace.shared.open(url)
+    }
+
+    func checkMicrophonePermission() {
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            appState.updateMicrophoneState(isReady: true)
+            DiagnosticLog.write("MicrophonePermission: ui-testing ready=true")
+            return
+        }
+
+        Task { @MainActor in
+            let ready = await requestMicrophoneAccessIfNeeded()
+            appState.updateMicrophoneState(isReady: ready)
+            DiagnosticLog.write("MicrophonePermission: checked ready=\(ready)")
+        }
     }
 
     func runSetupCheck() {
@@ -580,7 +628,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return
             }
 
-            guard AXIsProcessTrusted() else {
+            guard accessibilityTrusted() else {
                 appState.updateAccessibilityState(isTrusted: false)
                 appState.failSetupCheck("Enable Accessibility")
                 return
@@ -641,8 +689,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return transcriptionController.errorMessage(from: error)
     }
 
+    private func accessibilityTrusted() -> Bool {
+        AXIsProcessTrusted()
+    }
+
     private func requestMicrophoneAccessIfNeeded() async -> Bool {
-        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        let status = AVCaptureDevice.authorizationStatus(for: .audio)
+        DiagnosticLog.write("MicrophonePermission: authorizationStatus=\(status.rawValue)")
+        switch status {
         case .authorized:
             return true
         case .denied, .restricted:
@@ -650,6 +704,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         case .notDetermined:
             return await withCheckedContinuation { continuation in
                 AVCaptureDevice.requestAccess(for: .audio) { granted in
+                    DiagnosticLog.write("MicrophonePermission: requestAccess granted=\(granted)")
                     continuation.resume(returning: granted)
                 }
             }

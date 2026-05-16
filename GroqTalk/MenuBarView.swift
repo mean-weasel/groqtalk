@@ -16,6 +16,7 @@ struct MenuBarView: View {
     var onOpenSettings: (() -> Void)?
     var onOpenAccessibility: (() -> Void)?
     var onOpenMicrophone: (() -> Void)?
+    var onCheckMicrophone: (() -> Void)?
     var onRunSetupCheck: (() -> Void)?
     var onSimulateSuccess: (() -> Void)?
     var onSimulateFailure: (() -> Void)?
@@ -47,6 +48,28 @@ struct MenuBarView: View {
         appState.selectedTranscriptionProvider.requiresAPIKey
             ? "Add your \(appState.selectedTranscriptionProvider.displayName) API key to enable transcription."
             : "API key optional for this provider."
+    }
+
+    private var microphoneActionTitle: String? {
+        switch appState.microphoneState {
+        case .ready:
+            nil
+        case .unknown:
+            "Check"
+        case .needsAction:
+            "Open Settings"
+        }
+    }
+
+    private var microphoneAction: (() -> Void)? {
+        switch appState.microphoneState {
+        case .ready:
+            nil
+        case .unknown:
+            onCheckMicrophone
+        case .needsAction:
+            onOpenMicrophone
+        }
     }
 
     var body: some View {
@@ -364,9 +387,9 @@ struct MenuBarView: View {
             permissionRow(
                 title: "Microphone",
                 state: appState.microphoneState,
-                actionTitle: "Open Settings",
+                actionTitle: microphoneActionTitle,
                 recoveryDetail: "Open Microphone privacy and allow GroqTalk.",
-                action: onOpenMicrophone
+                action: microphoneAction
             )
             permissionRow(
                 title: "\(appState.selectedTranscriptionProvider.displayName) API key",
@@ -441,6 +464,7 @@ struct MenuBarView: View {
                         action()
                     }
                     .buttonStyle(.borderless)
+                    .frame(minWidth: 48, minHeight: 18)
                     .accessibilityIdentifier("menu.setup.\(title).action")
                 }
             }

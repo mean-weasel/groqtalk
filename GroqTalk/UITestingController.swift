@@ -1,3 +1,4 @@
+import AVFoundation
 import AppKit
 import SwiftUI
 
@@ -112,6 +113,24 @@ final class UITestingController {
             #endif
         }
 
+        if args.contains("--seed-setup-ready") {
+            appState.updateAccessibilityState(isTrusted: true)
+            appState.updateMicrophoneState(isReady: true)
+            appState.apiKeyState = .ready
+        }
+
+        if args.contains("--seed-microphone-unknown") {
+            appState.updateAccessibilityState(isTrusted: true)
+            appState.microphoneState = .unknown
+            appState.apiKeyState = .ready
+        }
+
+        if args.contains("--seed-microphone-denied") {
+            appState.updateAccessibilityState(isTrusted: true)
+            appState.updateMicrophoneState(isReady: false, message: "Allow microphone access")
+            appState.apiKeyState = .ready
+        }
+
         if args.contains("--seed-history") {
             history.clear()
             history.addSuccess(text: "Seeded transcript for UI testing.")
@@ -138,6 +157,7 @@ final class UITestingController {
         UserDefaults(suiteName: "com.neonwatty.GroqTalk.UITests")?.synchronize()
 
         showUITestWindow()
+        configureLiveMicrophoneSmokeIfNeeded(args: args)
     }
 
     func configureAutomationSmokeIfNeeded() {
@@ -213,6 +233,141 @@ final class UITestingController {
         DiagnosticLog.write("E2E: provider=groq model=\(appState.selectedModel)")
     }
 
+    // MARK: - Live microphone smoke
+
+    private func configureLiveMicrophoneSmokeIfNeeded(args: [String]) {
+        #if DEBUG
+        guard args.contains("--live-microphone-smoke") else { return }
+
+        let env = ProcessInfo.processInfo.environment
+        let resultPath = env["LIVE_MICROPHONE_RESULT_PATH"] ?? "/tmp/groqtalk-live-microphone-result.txt"
+        let duration = TimeInterval(env["LIVE_MICROPHONE_DURATION_SECONDS"] ?? "") ?? 2
+        let signingIdentity = env["LIVE_MICROPHONE_SIGNING_IDENTITY"] ?? "unknown"
+        try? FileManager.default.removeItem(atPath: resultPath)
+
+        DiagnosticLog.write("live microphone smoke: starting duration=\(duration) resultPath=\(resultPath)")
+        Task.detached {
+            let recorder = AudioRecorder()
+            let startedAt = Date()
+            let appPath = Bundle.main.bundlePath
+            let permissionStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+            Self.writeLiveMicrophoneResult(
+                path: resultPath,
+                status: "started",
+                detail: "Recorder start requested; waiting for stop result.",
+                elapsed: 0,
+                bytes: 0,
+                appPath: appPath,
+                signingIdentity: signingIdentity,
+                microphonePermissionStatus: Self.microphonePermissionDescription(permissionStatus),
+                recordingStarted: false,
+                recordingStopped: false
+            )
+            do {
+                try recorder.startRecording()
+                Self.writeLiveMicrophoneResult(
+                    path: resultPath,
+                    status: "recording",
+                    detail: "Recorder started; waiting to stop.",
+                    elapsed: Date().timeIntervalSince(startedAt),
+                    bytes: 0,
+                    appPath: appPath,
+                    signingIdentity: signingIdentity,
+                    microphonePermissionStatus: Self.microphonePermissionDescription(permissionStatus),
+                    recordingStarted: true,
+                    recordingStopped: false
+                )
+                try await Task.sleep(for: .milliseconds(Int(duration * 1000)))
+                guard let audioURL = try await recorder.stopRecordingAsync(format: .wav) else {
+                    Self.writeLiveMicrophoneResult(
+                        path: resultPath,
+                        status: "fail",
+                        detail: "No audio buffers were captured. Check microphone permission, selected input device, and input level.",
+                        elapsed: Date().timeIntervalSince(startedAt),
+                        bytes: 0,
+                        appPath: appPath,
+                        signingIdentity: signingIdentity,
+                        microphonePermissionStatus: Self.microphonePermissionDescription(permissionStatus),
+                        recordingStarted: true,
+                        recordingStopped: true
+                    )
+                    return
+                }
+                let bytes = (try? audioURL.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                try? FileManager.default.removeItem(at: audioURL)
+                Self.writeLiveMicrophoneResult(
+                    path: resultPath,
+                    status: bytes > 0 ? "pass" : "fail",
+                    detail: bytes > 0 ? "Captured microphone audio." : "Captured audio file was empty.",
+                    elapsed: Date().timeIntervalSince(startedAt),
+                    bytes: bytes,
+                    appPath: appPath,
+                    signingIdentity: signingIdentity,
+                    microphonePermissionStatus: Self.microphonePermissionDescription(permissionStatus),
+                    recordingStarted: true,
+                    recordingStopped: true
+                )
+            } catch {
+                recorder.cancelRecording()
+                Self.writeLiveMicrophoneResult(
+                    path: resultPath,
+                    status: "fail",
+                    detail: "Recorder failed: \(error.localizedDescription)",
+                    elapsed: Date().timeIntervalSince(startedAt),
+                    bytes: 0,
+                    appPath: appPath,
+                    signingIdentity: signingIdentity,
+                    microphonePermissionStatus: Self.microphonePermissionDescription(permissionStatus),
+                    recordingStarted: false,
+                    recordingStopped: false
+                )
+            }
+        }
+        #endif
+    }
+
+    nonisolated private static func writeLiveMicrophoneResult(
+        path: String,
+        status: String,
+        detail: String,
+        elapsed: TimeInterval,
+        bytes: Int,
+        appPath: String,
+        signingIdentity: String,
+        microphonePermissionStatus: String,
+        recordingStarted: Bool,
+        recordingStopped: Bool
+    ) {
+        let body = [
+            "status=\(status)",
+            "app_path=\(appPath)",
+            "signing_identity=\(signingIdentity)",
+            "microphone_permission_status=\(microphonePermissionStatus)",
+            "recording_started=\(recordingStarted)",
+            "recording_stopped=\(recordingStopped)",
+            "bytes=\(bytes)",
+            "elapsed_seconds=\(String(format: "%.3f", elapsed))",
+            "detail=\(detail)"
+        ].joined(separator: "\n") + "\n"
+        try? body.write(toFile: path, atomically: true, encoding: .utf8)
+        DiagnosticLog.write("live microphone smoke: \(body.replacingOccurrences(of: "\n", with: " "))")
+    }
+
+    nonisolated private static func microphonePermissionDescription(_ status: AVAuthorizationStatus) -> String {
+        switch status {
+        case .authorized:
+            "authorized"
+        case .denied:
+            "denied"
+        case .restricted:
+            "restricted"
+        case .notDetermined:
+            "not_determined"
+        @unknown default:
+            "unknown"
+        }
+    }
+
     // MARK: - Automation smoke
 
     @objc private func runAutomationMockSuccess() {
@@ -259,21 +414,22 @@ final class UITestingController {
             onOpenSettings: { [weak self] in self?.showUITestSettingsWindow() },
             onOpenAccessibility: onOpenAccessibility,
             onOpenMicrophone: onOpenMicrophone,
+            onCheckMicrophone: { [weak self] in self?.appState.updateMicrophoneState(isReady: true) },
             onRunSetupCheck: onRunSetupCheck,
             onSimulateSuccess: { [weak self] in self?.simulateUITestTranscription(success: true) },
             onSimulateFailure: { [weak self] in self?.simulateUITestTranscription(success: false) }
         )
         .accessibilityIdentifier("uiTest.controlCenter")
-        .frame(width: 360, height: 620)
+        .frame(width: 460, height: 620)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 640),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 640),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered,
             defer: false
         )
         window.title = "GroqTalk UI Test"
-        window.contentView = fixedHostingView(rootView: view, size: NSSize(width: 360, height: 620))
+        window.contentView = fixedHostingView(rootView: view, size: NSSize(width: 460, height: 620))
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

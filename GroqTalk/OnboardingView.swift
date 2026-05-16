@@ -2,6 +2,7 @@ import SwiftUI
 
 struct OnboardingView: View {
     @Bindable var appState: AppState
+    var onCheckMicrophone: (() -> Void)?
     var onComplete: () -> Void
 
     @State private var currentStep: Int = 0
@@ -77,6 +78,11 @@ struct OnboardingView: View {
         }
         .frame(width: 420, height: 340)
         .accessibilityIdentifier("onboarding.root")
+        .onChange(of: currentStep) { _, step in
+            if step == 2 && !isUITesting {
+                onCheckMicrophone?()
+            }
+        }
     }
 
     // MARK: - Step Views
@@ -149,6 +155,14 @@ struct OnboardingView: View {
 
             permissionStatusBadge(state: appState.microphoneState, readyLabel: "Microphone access granted")
 
+            if appState.microphoneState == .unknown {
+                Button("Check Microphone Access") {
+                    onCheckMicrophone?()
+                }
+                .font(.caption)
+                .accessibilityIdentifier("onboarding.checkMicrophoneButton")
+            }
+
             Button("Open Privacy & Security Settings") {
                 if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
                     NSWorkspace.shared.open(url)
@@ -160,6 +174,10 @@ struct OnboardingView: View {
     }
 
     // MARK: - Helpers
+
+    private var isUITesting: Bool {
+        ProcessInfo.processInfo.arguments.contains("--ui-testing")
+    }
 
     @ViewBuilder
     private func permissionStatusBadge(state: AppState.PermissionState, readyLabel: String) -> some View {
